@@ -7,6 +7,11 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FRAMEWORK_ROOT = resolve(__dirname, "..");
 const PROJECT_ROOT = process.cwd();
+const FRAMEWORK_BIN = resolve(FRAMEWORK_ROOT, "node_modules/.bin");
+const frameworkEnv = {
+  ...process.env,
+  PATH: `${FRAMEWORK_BIN}:${process.env.PATH}`,
+};
 
 const command = process.argv[2];
 
@@ -37,12 +42,13 @@ function dev() {
   const api = spawn("bun", ["--watch", apiEntry], {
     stdio: "inherit",
     cwd: PROJECT_ROOT,
-    env: { ...process.env, PORT: process.env.PORT ?? "3001" },
+    env: { ...frameworkEnv, PORT: process.env.PORT ?? "3001" },
   });
 
   const web = spawn("bun", ["--bun", "vite", "dev"], {
     stdio: "inherit",
     cwd: webDir,
+    env: frameworkEnv,
   });
 
   function cleanup() {
@@ -75,7 +81,7 @@ function build() {
   const result = spawn("bun", ["--bun", "vite", "build"], {
     stdio: "inherit",
     cwd: webDir,
-    env: { ...process.env, VITE_API_URL: "" },
+    env: { ...frameworkEnv, VITE_API_URL: "" },
   });
 
   result.on("exit", (code) => {
