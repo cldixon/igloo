@@ -1,4 +1,4 @@
-import type { DirectoryListing, FileMetadata } from "@igloo/shared";
+import type { DirectoryListing, FileMetadata, IglooConfig } from "@igloo/shared";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
@@ -16,4 +16,14 @@ export async function fetchMetadata(path: string): Promise<FileMetadata> {
 
 export function getDownloadUrl(path: string): string {
   return `${API_BASE}/api/download?path=${encodeURIComponent(path)}`;
+}
+
+export async function fetchConfig(): Promise<IglooConfig> {
+  try {
+    const res = await fetch(`${API_BASE}/api/config`);
+    if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`);
+    return res.json();
+  } catch {
+    return { title: "igloo", tagline: "personal data repository", theme: "github" };
+  }
 }

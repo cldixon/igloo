@@ -22,8 +22,8 @@ export interface Breadcrumb {
   path: string;
 }
 
-export function buildBreadcrumbs(path: string): Breadcrumb[] {
-  const crumbs: Breadcrumb[] = [{ name: "igloo", path: "" }];
+export function buildBreadcrumbs(path: string, rootName: string = "igloo"): Breadcrumb[] {
+  const crumbs: Breadcrumb[] = [{ name: rootName, path: "" }];
   if (!path) return crumbs;
 
   const segments = path.replace(/\/$/, "").split("/");

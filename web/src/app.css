@@ -1,38 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap');
+/* Fonts are injected dynamically per theme via JS */
 
 :root {
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  /* Fallback values (overridden by JS theme application) */
+  --font-mono: 'JetBrains Mono', 'SF Mono', monospace;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-[data-theme="light"] {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f6f8fa;
-  --bg-hover: #f0f2f5;
-  --text-primary: #1a1a2e;
-  --text-secondary: #656d76;
-  --text-muted: #a0a8b4;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --border: #d1d9e0;
-  --icon-color: #656d76;
-  --header-bg: #f6f8fa;
-  --header-border: #d1d9e0;
-}
-
-[data-theme="dark"] {
-  --bg-primary: #0d1117;
-  --bg-secondary: #161b22;
-  --bg-hover: #1c2128;
-  --text-primary: #e6edf3;
-  --text-secondary: #7d8590;
-  --text-muted: #484f58;
-  --accent: #58a6ff;
-  --accent-hover: #79c0ff;
-  --border: #30363d;
-  --icon-color: #7d8590;
-  --header-bg: #161b22;
-  --header-border: #30363d;
+  --border-radius: 8px;
+  --border-radius-sm: 6px;
+  --entry-padding: 0.625rem 1rem;
+  --link-decoration: none;
+  --link-hover-decoration: underline;
 }
 
 *,
@@ -59,5 +35,5 @@ body {
 
 a {
   color: inherit;
-  text-decoration: none;
+  text-decoration: var(--link-decoration);
 }

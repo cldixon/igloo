@@ -21,3 +21,12 @@ export interface FileMetadata {
   contentType: string;
   etag?: string;
 }
+
+export type VisualTheme = "github" | "apache";
+export type ColorMode = "light" | "dark";
+
+export interface IglooConfig {
+  title: string;
+  tagline: string;
+  theme: VisualTheme;
+}

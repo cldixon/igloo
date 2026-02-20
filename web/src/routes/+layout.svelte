@@ -1,39 +1,57 @@
 <script lang="ts">
   import "../app.css";
-  import ThemeToggle from "$lib/components/ThemeToggle.svelte";
-  import { theme } from "$lib/theme";
+  import SettingsMenu from "$lib/components/SettingsMenu.svelte";
+  import { colorMode, visualTheme, config, applyConfig } from "$lib/theme";
+  import { fetchConfig } from "$lib/api";
+  import { onMount } from "svelte";
 
   let { children } = $props();
 
-  // Ensure theme is applied on mount
+  onMount(async () => {
+    const cfg = await fetchConfig();
+    applyConfig(cfg);
+  });
+
   $effect(() => {
-    document.documentElement.setAttribute("data-theme", $theme);
+    document.documentElement.setAttribute("data-theme", $colorMode);
   });
 </script>
 
 <svelte:head>
-  <title>igloo</title>
-  <meta name="description" content="Personal data repository" />
+  <title>{$config.title}</title>
+  <meta name="description" content={$config.tagline} />
 </svelte:head>
 
-<div class="app">
-  <header>
-    <div class="header-content">
-      <a href="/" class="logo">
-        <span class="logo-icon">&#10052;</span>
-        <span class="logo-text">igloo</span>
-      </a>
-      <ThemeToggle />
+<div class="app" data-layout={$visualTheme}>
+  {#if $visualTheme === "apache"}
+    <!-- Apache: floating settings button, no branded header -->
+    <div class="toolbar">
+      <SettingsMenu />
     </div>
-  </header>
 
-  <main>
-    {@render children()}
-  </main>
+    <main class="apache-main">
+      {@render children()}
+    </main>
+  {:else}
+    <!-- GitHub: branded header with logo -->
+    <header>
+      <div class="header-content">
+        <a href="/" class="logo">
+          <span class="logo-icon">&#10052;</span>
+          <span class="logo-text">{$config.title}</span>
+        </a>
+        <SettingsMenu />
+      </div>
+    </header>
 
-  <footer>
-    <span class="footer-text">igloo &mdash; personal data repository</span>
-  </footer>
+    <main class="github-main">
+      {@render children()}
+    </main>
+
+    <footer>
+      <span class="footer-text">{$config.title} &mdash; {$config.tagline}</span>
+    </footer>
+  {/if}
 </div>
 
 <style>
@@ -43,6 +61,7 @@
     flex-direction: column;
   }
 
+  /* --- GitHub layout --- */
   header {
     background-color: var(--header-bg);
     border-bottom: 1px solid var(--header-border);
@@ -79,7 +98,7 @@
     letter-spacing: -0.02em;
   }
 
-  main {
+  .github-main {
     flex: 1;
     max-width: 960px;
     width: 100%;
@@ -97,5 +116,22 @@
     font-family: var(--font-mono);
     font-size: 0.75rem;
     color: var(--text-muted);
+  }
+
+  /* --- Apache layout --- */
+  .toolbar {
+    position: fixed;
+    top: 0.75rem;
+    right: 1rem;
+    z-index: 10;
+  }
+
+  .apache-main {
+    flex: 1;
+    max-width: 960px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1.5rem;
+    padding-top: 0.75rem;
   }
 </style>

@@ -48,7 +48,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.625rem 1rem;
+    padding: var(--entry-padding);
     border-bottom: 1px solid var(--border);
     transition: background-color 0.15s;
   }
@@ -69,14 +69,14 @@
     font-family: var(--font-mono);
     font-size: 0.875rem;
     color: var(--accent);
-    text-decoration: none;
+    text-decoration: var(--link-decoration);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .name-link:hover {
-    text-decoration: underline;
+    text-decoration: var(--link-hover-decoration);
   }
 
   .name-text {
@@ -113,7 +113,7 @@
     display: inline-flex;
     align-items: center;
     padding: 0.25rem;
-    border-radius: 4px;
+    border-radius: var(--border-radius-sm);
     transition: color 0.15s;
   }
 
