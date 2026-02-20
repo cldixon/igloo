@@ -1,0 +1,12 @@
+{
+  "name": "igloo",
+  "private": true,
+  "workspaces": ["api", "web", "packages/*"],
+  "scripts": {
+    "dev": "concurrently --names api,web -c blue,green \"bun run --filter api dev\" \"bun run --filter web dev\"",
+    "build": "bun run --filter api build && bun run --filter web build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
