@@ -1,0 +1,13 @@
+{
+  "name": "create-igloo",
+  "version": "0.1.0",
+  "description": "Scaffold a new igloo data repository",
+  "type": "module",
+  "bin": {
+    "create-igloo": "./bin/create-igloo.ts"
+  },
+  "files": [
+    "bin/"
+  ],
+  "license": "MIT"
+}

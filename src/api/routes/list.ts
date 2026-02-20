@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import { listObjects, getReadme } from "../r2.js";
-import type { DirectoryListing } from "@igloo/shared";
+import { listObjects, getReadme } from "../storage.js";
+import type { DirectoryListing } from "../../shared/types.js";
 
 export const listRoute = new Hono();
 

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 import yaml from "js-yaml";
-import type { IglooConfig, VisualTheme } from "@igloo/shared";
+import type { IglooConfig, VisualTheme } from "../../shared/types.js";
 
 export const configRoute = new Hono();
 
