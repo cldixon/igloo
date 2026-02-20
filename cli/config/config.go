@@ -13,7 +13,17 @@ type Config struct {
 	APIURL string `yaml:"api_url"`
 }
 
+var configDir string
+
+// SetConfigDir overrides the default config directory. Pass "" to reset.
+func SetConfigDir(dir string) {
+	configDir = dir
+}
+
 func ConfigDir() string {
+	if configDir != "" {
+		return configDir
+	}
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".igloo")
 }
