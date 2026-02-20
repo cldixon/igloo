@@ -31,17 +31,18 @@
     title="Settings"
     aria-expanded={open}
   >
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-      <circle cx="10" cy="10" r="2" />
-      <path d="M10 1.5v2M10 16.5v2M1.5 10h2M16.5 10h2M3.87 3.87l1.41 1.41M14.72 14.72l1.41 1.41M3.87 16.13l1.41-1.41M14.72 5.28l1.41-1.41" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z" />
+      <circle cx="12" cy="12" r="3" />
     </svg>
   </button>
 
   {#if open}
     <div class="dropdown">
       <div class="setting-row">
-        <label class="setting-label">Theme</label>
+        <label class="setting-label" for="theme-select">Theme</label>
         <select
+          id="theme-select"
           class="setting-select"
           value={$visualTheme}
           onchange={handleThemeChange}
@@ -53,7 +54,7 @@
       </div>
 
       <div class="setting-row">
-        <label class="setting-label">Mode</label>
+        <span class="setting-label">Mode</span>
         <button class="mode-toggle" onclick={toggleColorMode}>
           {#if $colorMode === "dark"}
             <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" width="14" height="14">
@@ -80,11 +81,11 @@
 
   .settings-btn {
     background: none;
-    border: 1px solid var(--border);
-    color: var(--text-secondary);
+    border: 1px solid var(--nav-border);
+    color: var(--nav-text-secondary);
     cursor: pointer;
     padding: 6px;
-    border-radius: var(--border-radius-sm);
+    border-radius: 6px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -92,8 +93,8 @@
   }
 
   .settings-btn:hover {
-    color: var(--text-primary);
-    border-color: var(--text-secondary);
+    color: var(--nav-text);
+    border-color: var(--nav-text-secondary);
   }
 
   .settings-btn svg {
@@ -106,9 +107,9 @@
     top: calc(100% + 6px);
     right: 0;
     z-index: 100;
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border);
-    border-radius: var(--border-radius-sm);
+    background-color: var(--nav-bg);
+    border: 1px solid var(--nav-border);
+    border-radius: 6px;
     padding: 0.5rem;
     min-width: 160px;
     display: flex;
@@ -125,37 +126,37 @@
   }
 
   .setting-label {
-    font-family: var(--font-mono);
+    font-family: var(--nav-font);
     font-size: 0.6875rem;
-    color: var(--text-secondary);
+    color: var(--nav-text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     white-space: nowrap;
   }
 
   .setting-select {
-    font-family: var(--font-mono);
+    font-family: var(--nav-font);
     font-size: 0.75rem;
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    border-radius: var(--border-radius-sm);
+    background-color: var(--nav-bg);
+    color: var(--nav-text);
+    border: 1px solid var(--nav-border);
+    border-radius: 6px;
     padding: 3px 6px;
     cursor: pointer;
   }
 
   .setting-select:focus {
-    outline: 2px solid var(--accent);
+    outline: 2px solid #2563eb;
     outline-offset: 1px;
   }
 
   .mode-toggle {
-    font-family: var(--font-mono);
+    font-family: var(--nav-font);
     font-size: 0.75rem;
     background: none;
-    border: 1px solid var(--border);
-    border-radius: var(--border-radius-sm);
-    color: var(--text-primary);
+    border: 1px solid var(--nav-border);
+    border-radius: 6px;
+    color: var(--nav-text);
     cursor: pointer;
     padding: 3px 8px;
     display: inline-flex;
@@ -165,6 +166,6 @@
   }
 
   .mode-toggle:hover {
-    border-color: var(--text-secondary);
+    border-color: var(--nav-text-secondary);
   }
 </style>

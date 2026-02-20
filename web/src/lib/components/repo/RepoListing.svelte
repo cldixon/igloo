@@ -73,7 +73,7 @@
   }
 
   .col-date {
-    width: 10rem;
+    width: 7.5rem;
     text-align: right;
   }
 

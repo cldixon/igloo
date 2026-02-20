@@ -9,6 +9,13 @@
   --entry-padding: 0.625rem 1rem;
   --link-decoration: none;
   --link-hover-decoration: underline;
+
+  /* Nav bar — theme-independent, only responds to light/dark */
+  --nav-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --nav-bg: #f6f8fa;
+  --nav-border: #d1d9e0;
+  --nav-text: #1a1a2e;
+  --nav-text-secondary: #656d76;
 }
 
 *,

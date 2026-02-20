@@ -6,12 +6,12 @@ import type { IglooConfig, VisualTheme } from "@igloo/shared";
 
 export const configRoute = new Hono();
 
-const VALID_THEMES: VisualTheme[] = ["github", "apache"];
+const VALID_THEMES: VisualTheme[] = ["repo", "index"];
 
 const DEFAULTS: IglooConfig = {
   title: "igloo",
   tagline: "personal data repository",
-  theme: "github",
+  theme: "repo",
 };
 
 function loadConfig(): IglooConfig {

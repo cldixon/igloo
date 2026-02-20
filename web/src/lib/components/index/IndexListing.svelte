@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DirectoryListing } from "@igloo/shared";
   import ReadmeViewer from "$lib/components/ReadmeViewer.svelte";
-  import { formatBytes, formatDate } from "$lib/utils";
+  import { formatBytes, formatDateFull } from "$lib/utils";
   import { getDownloadUrl } from "$lib/api";
   import { config } from "$lib/theme";
 
@@ -60,7 +60,7 @@
                 <a href={getDownloadUrl(entry.path)}>{entry.name}</a>
               {/if}
             </td>
-            <td class="col-date">{entry.lastModified ? formatDate(entry.lastModified) : "-"}</td>
+            <td class="col-date">{entry.lastModified ? formatDateFull(entry.lastModified) : "-"}</td>
             <td class="col-size">{entry.type === "file" && entry.size != null ? formatBytes(entry.size) : "-"}</td>
           </tr>
         {/each}
@@ -82,16 +82,16 @@
 <style>
   .apache-listing {
     font-family: var(--font-mono);
-    font-size: 0.875rem;
-    line-height: 1.4;
+    font-size: 1rem;
+    line-height: 1.5;
   }
 
   h1 {
     font-family: var(--font-mono);
-    font-size: 1.25rem;
+    font-size: 1.5rem;
     font-weight: normal;
     color: var(--text-primary);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
   }
 
   hr {
@@ -104,25 +104,25 @@
     width: 100%;
     border-collapse: collapse;
     font-family: var(--font-mono);
-    font-size: 0.8125rem;
+    font-size: 0.9375rem;
   }
 
   thead th {
     text-align: left;
     font-weight: bold;
     color: var(--text-primary);
-    padding: 0.25rem 0.75rem;
+    padding: 0.375rem 0.75rem;
   }
 
   .col-icon {
     width: 3.5rem;
-    padding: 0.125rem 0.5rem;
+    padding: 0.3rem 0.5rem;
     color: var(--text-muted);
     white-space: nowrap;
   }
 
   td.col-name {
-    padding: 0.125rem 0.75rem;
+    padding: 0.3rem 0.75rem;
   }
 
   th.col-name {
@@ -131,22 +131,22 @@
 
   td.col-date,
   th.col-date {
-    padding: 0.125rem 0.75rem;
+    padding: 0.3rem 0.75rem;
     white-space: nowrap;
     color: var(--text-secondary);
   }
 
   td.col-size,
   th.col-size {
-    padding: 0.125rem 0.75rem;
+    padding: 0.3rem 0.75rem;
     text-align: right;
     white-space: nowrap;
     color: var(--text-secondary);
   }
 
   .entry td {
-    padding-top: 0.125rem;
-    padding-bottom: 0.125rem;
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
   }
 
   .entry:hover {
@@ -164,7 +164,7 @@
 
   .header-rule td,
   .footer-rule td {
-    padding: 0.25rem 0;
+    padding: 0.375rem 0;
   }
 
   .header-rule hr,
@@ -179,10 +179,10 @@
 
   address {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     font-style: italic;
     color: var(--text-muted);
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
   }
 
   @media (max-width: 640px) {

@@ -12,6 +12,15 @@ export function formatDate(iso: string): string {
     year: "numeric",
     month: "short",
     day: "numeric",
+  });
+}
+
+export function formatDateFull(iso: string): string {
+  const date = new Date(iso);
+  return date.toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });

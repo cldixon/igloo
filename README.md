@@ -137,7 +137,26 @@ The CLI resolves the target instance with this precedence: `--url` flag > `IGLOO
 
 ## Web UI
 
-The web interface provides a directory browser modeled after classic server index pages — updated with a modern, monospace-driven design. Features include breadcrumb navigation, file type icons, inline README rendering, and a light/dark theme toggle.
+The web interface provides a directory browser modeled after classic server index pages — updated with a modern, monospace-driven design. Features include breadcrumb navigation, file type icons, inline README rendering, and a light/dark mode toggle.
+
+### Appearance
+
+The UI ships with two visual themes and a light/dark mode toggle, all accessible from the settings menu (gear icon) in the top-right corner:
+
+| Theme | Description |
+|---|---|
+| **Repo** | Card-based layout with rounded corners, JetBrains Mono + Inter fonts, and a modern repository feel |
+| **Index** | Classic Apache `mod_autoindex` directory listing — monospace table, `[DIR]`/`[   ]` markers, "Index of /path" heading |
+
+The default theme, site title, and tagline are configured in `igloo.config.yaml` at the repo root:
+
+```yaml
+title: igloo
+tagline: personal data repository
+theme: repo
+```
+
+The API serves this config at `GET /api/config`. Users can override the theme and color mode in-browser via the settings menu — preferences are saved to `localStorage`.
 
 ## Deployment
 

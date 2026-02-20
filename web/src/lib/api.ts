@@ -24,6 +24,6 @@ export async function fetchConfig(): Promise<IglooConfig> {
     if (!res.ok) throw new Error(`Failed to fetch config: ${res.status}`);
     return res.json();
   } catch {
-    return { title: "igloo", tagline: "personal data repository", theme: "github" };
+    return { title: "igloo", tagline: "personal data repository", theme: "repo" };
   }
 }

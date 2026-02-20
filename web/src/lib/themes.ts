@@ -28,8 +28,8 @@ export interface ThemeDefinition {
 }
 
 export const themes: Record<VisualTheme, ThemeDefinition> = {
-  github: {
-    name: "GitHub",
+  repo: {
+    name: "Repo",
     fonts: {
       mono: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace",
       sans: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
@@ -73,8 +73,8 @@ export const themes: Record<VisualTheme, ThemeDefinition> = {
     },
   },
 
-  apache: {
-    name: "Apache",
+  index: {
+    name: "Index",
     fonts: {
       mono: "'Courier New', Courier, monospace",
       sans: "'Courier New', Courier, monospace",
@@ -118,4 +118,4 @@ export const themes: Record<VisualTheme, ThemeDefinition> = {
   },
 };
 
-export const THEME_NAMES: VisualTheme[] = ["github", "apache"];
+export const THEME_NAMES: VisualTheme[] = ["repo", "index"];

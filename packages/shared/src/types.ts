@@ -22,7 +22,7 @@ export interface FileMetadata {
   etag?: string;
 }
 
-export type VisualTheme = "github" | "apache";
+export type VisualTheme = "repo" | "index";
 export type ColorMode = "light" | "dark";
 
 export interface IglooConfig {

@@ -1,7 +1,7 @@
 <script lang="ts">
   import "../app.css";
   import SettingsMenu from "$lib/components/SettingsMenu.svelte";
-  import { colorMode, visualTheme, config, applyConfig } from "$lib/theme";
+  import { colorMode, config, applyConfig } from "$lib/theme";
   import { fetchConfig } from "$lib/api";
   import { onMount } from "svelte";
 
@@ -22,36 +22,24 @@
   <meta name="description" content={$config.tagline} />
 </svelte:head>
 
-<div class="app" data-layout={$visualTheme}>
-  {#if $visualTheme === "apache"}
-    <!-- Apache: floating settings button, no branded header -->
-    <div class="toolbar">
+<div class="app">
+  <header>
+    <div class="header-content">
+      <a href="/" class="logo">
+        <span class="logo-icon">&#10052;</span>
+        <span class="logo-text">{$config.title}</span>
+      </a>
       <SettingsMenu />
     </div>
+  </header>
 
-    <main class="apache-main">
-      {@render children()}
-    </main>
-  {:else}
-    <!-- GitHub: branded header with logo -->
-    <header>
-      <div class="header-content">
-        <a href="/" class="logo">
-          <span class="logo-icon">&#10052;</span>
-          <span class="logo-text">{$config.title}</span>
-        </a>
-        <SettingsMenu />
-      </div>
-    </header>
+  <main>
+    {@render children()}
+  </main>
 
-    <main class="github-main">
-      {@render children()}
-    </main>
-
-    <footer>
-      <span class="footer-text">{$config.title} &mdash; {$config.tagline}</span>
-    </footer>
-  {/if}
+  <footer>
+    <span class="footer-text">{$config.title} &mdash; {$config.tagline}</span>
+  </footer>
 </div>
 
 <style>
@@ -61,10 +49,9 @@
     flex-direction: column;
   }
 
-  /* --- GitHub layout --- */
   header {
-    background-color: var(--header-bg);
-    border-bottom: 1px solid var(--header-border);
+    background-color: var(--nav-bg);
+    border-bottom: 1px solid var(--nav-border);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -84,7 +71,7 @@
     align-items: center;
     gap: 0.5rem;
     text-decoration: none;
-    color: var(--text-primary);
+    color: var(--nav-text);
   }
 
   .logo-icon {
@@ -92,13 +79,13 @@
   }
 
   .logo-text {
-    font-family: var(--font-mono);
+    font-family: var(--nav-font);
     font-size: 1.125rem;
     font-weight: 600;
     letter-spacing: -0.02em;
   }
 
-  .github-main {
+  main {
     flex: 1;
     max-width: 960px;
     width: 100%;
@@ -107,31 +94,15 @@
   }
 
   footer {
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--nav-border);
+    background-color: var(--nav-bg);
     padding: 1rem 1.5rem;
     text-align: center;
   }
 
   .footer-text {
-    font-family: var(--font-mono);
+    font-family: var(--nav-font);
     font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  /* --- Apache layout --- */
-  .toolbar {
-    position: fixed;
-    top: 0.75rem;
-    right: 1rem;
-    z-index: 10;
-  }
-
-  .apache-main {
-    flex: 1;
-    max-width: 960px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 1.5rem;
-    padding-top: 0.75rem;
+    color: var(--nav-text-secondary);
   }
 </style>

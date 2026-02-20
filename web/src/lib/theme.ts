@@ -7,7 +7,7 @@ import { themes } from "./themes";
 export const config = writable<IglooConfig>({
   title: "igloo",
   tagline: "personal data repository",
-  theme: "github",
+  theme: "repo",
 });
 
 // ---- Color mode (light/dark) ----
@@ -24,10 +24,10 @@ export const colorMode = writable<ColorMode>(getInitialColorMode());
 
 // ---- Visual theme ----
 function getInitialVisualTheme(): VisualTheme {
-  if (!browser) return "github";
+  if (!browser) return "repo";
   const stored = localStorage.getItem("igloo-visual-theme");
-  if (stored === "github" || stored === "apache") return stored;
-  return "github";
+  if (stored === "repo" || stored === "index") return stored;
+  return "repo";
 }
 
 export const visualTheme = writable<VisualTheme>(getInitialVisualTheme());
@@ -60,6 +60,22 @@ if (browser) {
     localStorage.setItem("igloo-visual-theme", value);
   });
 
+  // Nav bar colors — fixed per light/dark mode, independent of visual theme
+  const NAV_COLORS: Record<ColorMode, Record<string, string>> = {
+    light: {
+      "--nav-bg": "#f6f8fa",
+      "--nav-border": "#d1d9e0",
+      "--nav-text": "#1a1a2e",
+      "--nav-text-secondary": "#656d76",
+    },
+    dark: {
+      "--nav-bg": "#161b22",
+      "--nav-border": "#30363d",
+      "--nav-text": "#e6edf3",
+      "--nav-text-secondary": "#7d8590",
+    },
+  };
+
   // Apply CSS variables and font whenever theme or color mode changes
   derived([visualTheme, colorMode], ([$vt, $cm]) => ({ vt: $vt, cm: $cm }))
     .subscribe(({ vt, cm }) => {
@@ -68,6 +84,11 @@ if (browser) {
       const root = document.documentElement;
 
       for (const [key, val] of Object.entries(colors)) {
+        root.style.setProperty(key, val);
+      }
+
+      // Nav variables — only change with light/dark, not visual theme
+      for (const [key, val] of Object.entries(NAV_COLORS[cm])) {
         root.style.setProperty(key, val);
       }
 

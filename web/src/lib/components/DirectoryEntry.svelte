@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DirectoryEntry } from "@igloo/shared";
   import FileIcon from "./FileIcon.svelte";
-  import { formatBytes, formatDate } from "$lib/utils";
+  import { formatBytes, formatDate, formatDateFull } from "$lib/utils";
   import { getDownloadUrl } from "$lib/api";
 
   let { entry }: { entry: DirectoryEntry } = $props();
@@ -23,7 +23,7 @@
         <span class="size">{formatBytes(entry.size)}</span>
       {/if}
       {#if entry.lastModified}
-        <span class="date">{formatDate(entry.lastModified)}</span>
+        <span class="date" title={formatDateFull(entry.lastModified)}>{formatDate(entry.lastModified)}</span>
       {/if}
       <a
         href={getDownloadUrl(entry.path)}
@@ -104,7 +104,7 @@
   }
 
   .date {
-    width: 10rem;
+    width: 7.5rem;
     text-align: right;
   }
 
