@@ -1,6 +1,6 @@
 import type { DirectoryListing, FileMetadata, IglooConfig } from "@igloo/shared";
 
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
 export async function fetchListing(path: string = ""): Promise<DirectoryListing> {
   const res = await fetch(`${API_BASE}/api/list?path=${encodeURIComponent(path)}`);

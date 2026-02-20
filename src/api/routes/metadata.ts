@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getObjectMetadata } from "../r2.js";
+import { getObjectMetadata } from "../storage.js";
 
 export const metadataRoute = new Hono();
 

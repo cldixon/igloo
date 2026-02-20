@@ -4,18 +4,18 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
 } from "@aws-sdk/client-s3";
-import type { DirectoryEntry, FileMetadata } from "@igloo/shared";
+import type { DirectoryEntry, FileMetadata } from "../shared/types.js";
 
 const s3 = new S3Client({
   region: "auto",
-  endpoint: process.env.R2_ENDPOINT,
+  endpoint: process.env.S3_ENDPOINT,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    accessKeyId: process.env.S3_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
   },
 });
 
-const BUCKET = process.env.R2_BUCKET_NAME!;
+const BUCKET = process.env.S3_BUCKET_NAME!;
 
 export async function listObjects(prefix: string): Promise<DirectoryEntry[]> {
   const command = new ListObjectsV2Command({

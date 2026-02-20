@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { stream } from "hono/streaming";
-import { getObject } from "../r2.js";
+import { getObject } from "../storage.js";
 
 export const downloadRoute = new Hono();
 

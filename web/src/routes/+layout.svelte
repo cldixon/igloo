@@ -26,7 +26,7 @@
   <header>
     <div class="header-content">
       <a href="/" class="logo">
-        <span class="logo-icon">&#10052;</span>
+        {#if $config.title === "igloo"}<span class="logo-icon">&#10052;</span>{/if}
         <span class="logo-text">{$config.title}</span>
       </a>
       <SettingsMenu />
