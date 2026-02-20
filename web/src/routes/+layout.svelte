@@ -1,19 +1,25 @@
 <script lang="ts">
   import "../app.css";
-  import ThemeToggle from "$lib/components/ThemeToggle.svelte";
-  import { theme } from "$lib/theme";
+  import SettingsMenu from "$lib/components/SettingsMenu.svelte";
+  import { colorMode, config, applyConfig } from "$lib/theme";
+  import { fetchConfig } from "$lib/api";
+  import { onMount } from "svelte";
 
   let { children } = $props();
 
-  // Ensure theme is applied on mount
+  onMount(async () => {
+    const cfg = await fetchConfig();
+    applyConfig(cfg);
+  });
+
   $effect(() => {
-    document.documentElement.setAttribute("data-theme", $theme);
+    document.documentElement.setAttribute("data-theme", $colorMode);
   });
 </script>
 
 <svelte:head>
-  <title>igloo</title>
-  <meta name="description" content="Personal data repository" />
+  <title>{$config.title}</title>
+  <meta name="description" content={$config.tagline} />
 </svelte:head>
 
 <div class="app">
@@ -21,9 +27,9 @@
     <div class="header-content">
       <a href="/" class="logo">
         <span class="logo-icon">&#10052;</span>
-        <span class="logo-text">igloo</span>
+        <span class="logo-text">{$config.title}</span>
       </a>
-      <ThemeToggle />
+      <SettingsMenu />
     </div>
   </header>
 
@@ -32,7 +38,7 @@
   </main>
 
   <footer>
-    <span class="footer-text">igloo &mdash; personal data repository</span>
+    <span class="footer-text">{$config.title} &mdash; {$config.tagline}</span>
   </footer>
 </div>
 
@@ -44,8 +50,8 @@
   }
 
   header {
-    background-color: var(--header-bg);
-    border-bottom: 1px solid var(--header-border);
+    background-color: var(--nav-bg);
+    border-bottom: 1px solid var(--nav-border);
     position: sticky;
     top: 0;
     z-index: 10;
@@ -65,7 +71,7 @@
     align-items: center;
     gap: 0.5rem;
     text-decoration: none;
-    color: var(--text-primary);
+    color: var(--nav-text);
   }
 
   .logo-icon {
@@ -73,7 +79,7 @@
   }
 
   .logo-text {
-    font-family: var(--font-mono);
+    font-family: var(--nav-font);
     font-size: 1.125rem;
     font-weight: 600;
     letter-spacing: -0.02em;
@@ -88,14 +94,15 @@
   }
 
   footer {
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--nav-border);
+    background-color: var(--nav-bg);
     padding: 1rem 1.5rem;
     text-align: center;
   }
 
   .footer-text {
-    font-family: var(--font-mono);
+    font-family: var(--nav-font);
     font-size: 0.75rem;
-    color: var(--text-muted);
+    color: var(--nav-text-secondary);
   }
 </style>

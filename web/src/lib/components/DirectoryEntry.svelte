@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DirectoryEntry } from "@igloo/shared";
   import FileIcon from "./FileIcon.svelte";
-  import { formatBytes, formatDate } from "$lib/utils";
+  import { formatBytes, formatDate, formatDateFull } from "$lib/utils";
   import { getDownloadUrl } from "$lib/api";
 
   let { entry }: { entry: DirectoryEntry } = $props();
@@ -23,7 +23,7 @@
         <span class="size">{formatBytes(entry.size)}</span>
       {/if}
       {#if entry.lastModified}
-        <span class="date">{formatDate(entry.lastModified)}</span>
+        <span class="date" title={formatDateFull(entry.lastModified)}>{formatDate(entry.lastModified)}</span>
       {/if}
       <a
         href={getDownloadUrl(entry.path)}
@@ -48,7 +48,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.625rem 1rem;
+    padding: var(--entry-padding);
     border-bottom: 1px solid var(--border);
     transition: background-color 0.15s;
   }
@@ -69,14 +69,14 @@
     font-family: var(--font-mono);
     font-size: 0.875rem;
     color: var(--accent);
-    text-decoration: none;
+    text-decoration: var(--link-decoration);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
   .name-link:hover {
-    text-decoration: underline;
+    text-decoration: var(--link-hover-decoration);
   }
 
   .name-text {
@@ -104,7 +104,7 @@
   }
 
   .date {
-    width: 10rem;
+    width: 7.5rem;
     text-align: right;
   }
 
@@ -113,7 +113,7 @@
     display: inline-flex;
     align-items: center;
     padding: 0.25rem;
-    border-radius: 4px;
+    border-radius: var(--border-radius-sm);
     transition: color 0.15s;
   }
 

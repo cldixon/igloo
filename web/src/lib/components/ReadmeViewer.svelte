@@ -25,7 +25,7 @@
   .readme-card {
     margin-top: 2rem;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--border-radius);
     overflow: hidden;
   }
 
@@ -71,13 +71,13 @@
     font-size: 0.85em;
     background-color: var(--bg-secondary);
     padding: 0.15em 0.4em;
-    border-radius: 4px;
+    border-radius: var(--border-radius-sm);
   }
 
   .readme-content :global(pre) {
     background-color: var(--bg-secondary);
     padding: 1rem;
-    border-radius: 6px;
+    border-radius: var(--border-radius-sm);
     overflow-x: auto;
     margin-bottom: 1rem;
   }

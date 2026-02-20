@@ -1,9 +1,10 @@
 <script lang="ts">
   import { buildBreadcrumbs } from "$lib/utils";
+  import { config } from "$lib/theme";
 
   let { path }: { path: string } = $props();
 
-  let crumbs = $derived(buildBreadcrumbs(path));
+  let crumbs = $derived(buildBreadcrumbs(path, $config.title));
 </script>
 
 <nav class="breadcrumbs" aria-label="Breadcrumb">
