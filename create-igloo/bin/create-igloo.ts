@@ -28,9 +28,9 @@ writeFileSync(
       version: "0.0.1",
       type: "module",
       scripts: {
-        dev: "igloo-server dev",
-        build: "igloo-server build",
-        start: "igloo-server start",
+        dev: "bun ./node_modules/igloo-server/bin/igloo-server.ts dev",
+        build: "bun ./node_modules/igloo-server/bin/igloo-server.ts build",
+        start: "bun ./node_modules/igloo-server/bin/igloo-server.ts start",
       },
       dependencies: {
         "igloo-server": "^0.1.0",
