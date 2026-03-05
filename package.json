@@ -19,7 +19,8 @@
   "scripts": {
     "dev": "bun bin/igloo-server.ts dev",
     "build": "bun bin/igloo-server.ts build",
-    "start": "bun bin/igloo-server.ts start"
+    "start": "bun bin/igloo-server.ts start",
+    "test": "bun test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.750.0",
