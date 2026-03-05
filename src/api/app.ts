@@ -4,6 +4,7 @@ import { listRoute } from "./routes/list.js";
 import { downloadRoute } from "./routes/download.js";
 import { metadataRoute } from "./routes/metadata.js";
 import { configRoute } from "./routes/config.js";
+import { mcpRoute } from "./mcp.js";
 
 const app = new Hono();
 
@@ -15,5 +16,6 @@ app.route("/api", listRoute);
 app.route("/api", downloadRoute);
 app.route("/api", metadataRoute);
 app.route("/api", configRoute);
+app.route("/mcp", mcpRoute);
 
 export { app };

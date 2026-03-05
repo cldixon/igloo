@@ -14,7 +14,7 @@ const DEFAULTS: IglooConfig = {
   theme: "repo",
 };
 
-function loadConfig(): IglooConfig {
+export function loadConfig(): IglooConfig {
   try {
     const configPath = process.env.IGLOO_CONFIG_PATH
       ? resolve(process.env.IGLOO_CONFIG_PATH)
