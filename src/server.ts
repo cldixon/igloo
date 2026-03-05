@@ -12,7 +12,8 @@ function isApiRoute(url: string): boolean {
     url.startsWith("/api/") ||
     url.startsWith("/api?") ||
     url === "/api" ||
-    url === "/health"
+    url === "/health" ||
+    url.startsWith("/mcp")
   );
 }
 
