@@ -125,10 +125,6 @@
     padding: 0.3rem 0.75rem;
   }
 
-  th.col-name {
-    /* no extra needed */
-  }
-
   td.col-date,
   th.col-date {
     padding: 0.3rem 0.75rem;
