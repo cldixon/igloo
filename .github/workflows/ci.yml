@@ -6,9 +6,11 @@ on:
   pull_request:
     branches: [main]
 
+# Quality gate only. Building and deploying the Worker is Workers Builds'
+# job — see "Continuous Deployment" in the README.
 jobs:
-  worker-tests:
-    name: Worker Tests
+  worker:
+    name: Worker
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,20 +19,27 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Install
-        run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile
 
-      - name: Typecheck
+      - name: Type check
         run: bunx tsc --noEmit
+
+      - name: Svelte check
+        run: bun run check
 
       - name: Test
         run: bun test
 
-      - name: Build web
+      - name: Build
         run: bun run build
 
-  cli-tests:
-    name: CLI Tests
+      # Runs last: the config points at web/build, so the assets have to exist
+      # before wrangler will resolve it.
+      - name: Validate Workers config
+        run: bunx wrangler deploy --dry-run
+
+  cli:
+    name: CLI
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -41,6 +50,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.23"
+
+      - name: Format check
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
 
       - name: Vet
         run: go vet ./...

@@ -9,6 +9,7 @@
     "dev": "bun scripts/dev.ts",
     "build": "cd web && bun --bun vite build",
     "deploy": "bun run build && bunx wrangler deploy",
+    "deploy:preview": "bun run build && bunx wrangler versions upload",
     "types": "bunx wrangler types",
     "check": "cd web && bun run check",
     "test": "bun test"

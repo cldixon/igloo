@@ -99,13 +99,20 @@ Answer the domain prompt with a blank line to drop the route and serve from `*.w
 
 Igloo deploys as a **single Worker** — the API and the web UI ship together as one artifact — so [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) handles the whole pipeline natively.
 
+The two systems have separate jobs, and neither does the other's work:
+
+| System | Responsibility |
+|---|---|
+| **GitHub Actions** (`.github/workflows/ci.yml`) | Every quality check. Worker: type check, `svelte-check`, tests, build, and `wrangler deploy --dry-run` to validate the config. CLI: `gofmt`, `go vet`, `go test`. |
+| **Workers Builds** | Building and deploying only |
+
 Connect the repo once:
 
 1. In the Cloudflare dashboard, open your Worker → **Settings** → **Build**.
 2. Connect your GitHub repository.
-3. Set the build command to `bun install && bun test && bun run build` so a failing test blocks the deploy.
+3. Set the build command to `bun install && bun run build`.
 4. Leave the deploy command as `npx wrangler deploy`.
-5. Under **Branch control**, enable **non-production branch builds**.
+5. Under **Branch control**, enable **non-production branch builds** (off by default — this is what produces the PR previews).
 
 You then get:
 
@@ -115,9 +122,7 @@ You then get:
 | Push to any other branch | `wrangler versions upload` — a new version, not promoted to production |
 | Open a pull request | Preview URLs posted as a PR comment |
 
-Each PR comment carries two links: a stable branch alias (`<branch>-<worker>.<subdomain>.workers.dev`) that survives new commits, and a per-commit URL pinned to that exact version.
-
-GitHub Actions (`.github/workflows/ci.yml`) stays the quality gate — it typechecks, tests and builds the Worker, and vets and tests the Go CLI. Workers Builds owns deployment.
+Each PR comment carries two links: a stable branch alias (`<branch>-<worker>.<subdomain>.workers.dev`) that survives new commits, and a per-commit URL pinned to that exact version. You can also publish a preview by hand with `bun run deploy:preview`.
 
 ### Caveats
 
