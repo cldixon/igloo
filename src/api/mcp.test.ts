@@ -4,12 +4,9 @@ import { describe, test, expect, mock, beforeEach, afterAll } from "bun:test";
 // Mock storage and config before importing the app
 // ---------------------------------------------------------------------------
 
-const mockListObjects = mock(async () => []);
-const mockGetReadme = mock(async () => null);
-const mockGetObject = mock(
-  async () =>
-    ({ Body: { transformToString: async () => "" } }) as any
-);
+const mockListObjects = mock(async (): Promise<any[]> => []);
+const mockGetReadme = mock(async (): Promise<string | null> => null);
+const mockGetObject = mock(async () => ({ text: async () => "" }) as any);
 const mockGetObjectMetadata = mock(
   async () =>
     ({
@@ -46,7 +43,18 @@ const { app } = await import("./app.js");
 // Start a real HTTP server (fetch-to-node needs real connections)
 // ---------------------------------------------------------------------------
 
-const server = Bun.serve({ port: 0, fetch: app.fetch });
+const mockEnv = {
+  DATA: {} as any,
+  ASSETS: { fetch: async () => new Response("asset", { status: 200 }) } as any,
+  IGLOO_TITLE: "test-igloo",
+  IGLOO_TAGLINE: "test tagline",
+  IGLOO_THEME: "repo",
+};
+
+const server = Bun.serve({
+  port: 0,
+  fetch: (req) => app.fetch(req, mockEnv),
+});
 const BASE = `http://localhost:${server.port}`;
 
 afterAll(() => {
@@ -90,10 +98,7 @@ beforeEach(() => {
   // Restore default implementations
   mockListObjects.mockImplementation(async () => []);
   mockGetReadme.mockImplementation(async () => null);
-  mockGetObject.mockImplementation(
-    async () =>
-      ({ Body: { transformToString: async () => "" } }) as any
-  );
+  mockGetObject.mockImplementation(async () => ({ text: async () => "" }) as any);
   mockGetObjectMetadata.mockImplementation(
     async () =>
       ({
@@ -176,7 +181,7 @@ describe("igloo_list", () => {
     expect(text).toContain("Entries: 2");
     expect(text).toContain("[DIR]  datasets/");
     expect(text).toContain("[FILE] readme.md");
-    expect(mockListObjects).toHaveBeenCalledWith("");
+    expect(mockListObjects).toHaveBeenCalledWith(mockEnv.DATA, "");
   });
 
   test("normalizes path with trailing slash", async () => {
@@ -189,7 +194,7 @@ describe("igloo_list", () => {
 
     const text = body.result.content[0].text;
     expect(text).toContain("Path: datasets/");
-    expect(mockListObjects).toHaveBeenCalledWith("datasets/");
+    expect(mockListObjects).toHaveBeenCalledWith(mockEnv.DATA, "datasets/");
   });
 
   test("includes README content when present", async () => {
@@ -242,10 +247,7 @@ describe("igloo_read_file", () => {
       contentType: "text/csv",
     }));
     mockGetObject.mockImplementationOnce(
-      async () =>
-        ({
-          Body: { transformToString: async () => "a,b,c\n1,2,3" },
-        }) as any
+      async () => ({ text: async () => "a,b,c\n1,2,3" }) as any
     );
 
     const { body } = await mcpRequest("tools/call", {

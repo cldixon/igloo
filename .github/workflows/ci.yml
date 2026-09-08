@@ -7,6 +7,28 @@ on:
     branches: [main]
 
 jobs:
+  worker-tests:
+    name: Worker Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Test
+        run: bun test
+
+      - name: Build web
+        run: bun run build
+
   cli-tests:
     name: CLI Tests
     runs-on: ubuntu-latest

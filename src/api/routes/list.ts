@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { listObjects, getReadme } from "../storage.js";
+import type { Bindings } from "../bindings.js";
 import type { DirectoryListing } from "../../shared/types.js";
 
-export const listRoute = new Hono();
+export const listRoute = new Hono<{ Bindings: Bindings }>();
 
 listRoute.get("/list", async (c) => {
   let path = c.req.query("path") ?? "";
@@ -13,8 +14,8 @@ listRoute.get("/list", async (c) => {
   }
 
   const [entries, readme] = await Promise.all([
-    listObjects(path),
-    getReadme(path),
+    listObjects(c.env.DATA, path),
+    getReadme(c.env.DATA, path),
   ]);
 
   const listing: DirectoryListing = { path, entries, readme };

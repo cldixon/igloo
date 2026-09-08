@@ -1,10 +1,8 @@
 import { Hono } from "hono";
-import { readFileSync } from "fs";
-import { resolve } from "path";
-import yaml from "js-yaml";
+import type { Bindings } from "../bindings.js";
 import type { IglooConfig, VisualTheme } from "../../shared/types.js";
 
-export const configRoute = new Hono();
+export const configRoute = new Hono<{ Bindings: Bindings }>();
 
 const VALID_THEMES: VisualTheme[] = ["repo", "index"];
 
@@ -14,30 +12,15 @@ const DEFAULTS: IglooConfig = {
   theme: "repo",
 };
 
-export function loadConfig(): IglooConfig {
-  try {
-    const configPath = process.env.IGLOO_CONFIG_PATH
-      ? resolve(process.env.IGLOO_CONFIG_PATH)
-      : resolve(process.cwd(), "igloo.config.yaml");
-    const raw = readFileSync(configPath, "utf-8");
-    const parsed = yaml.load(raw) as Record<string, unknown>;
-
-    return {
-      title: typeof parsed.title === "string" ? parsed.title : DEFAULTS.title,
-      tagline:
-        typeof parsed.tagline === "string"
-          ? parsed.tagline
-          : DEFAULTS.tagline,
-      theme: VALID_THEMES.includes(parsed.theme as VisualTheme)
-        ? (parsed.theme as VisualTheme)
-        : DEFAULTS.theme,
-    };
-  } catch {
-    return { ...DEFAULTS };
-  }
+/** Instance config comes from wrangler vars — there is no filesystem on Workers. */
+export function loadConfig(env: Bindings): IglooConfig {
+  return {
+    title: env.IGLOO_TITLE || DEFAULTS.title,
+    tagline: env.IGLOO_TAGLINE || DEFAULTS.tagline,
+    theme: VALID_THEMES.includes(env.IGLOO_THEME as VisualTheme)
+      ? (env.IGLOO_THEME as VisualTheme)
+      : DEFAULTS.theme,
+  };
 }
 
-configRoute.get("/config", (c) => {
-  const config = loadConfig();
-  return c.json(config);
-});
+configRoute.get("/config", (c) => c.json(loadConfig(c.env)));
