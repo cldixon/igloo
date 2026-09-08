@@ -93,7 +93,7 @@ This builds the web UI and deploys the Worker together as one unit.
 "routes": [{ "pattern": "data.example.com", "custom_domain": true }]
 ```
 
-Answer the domain prompt with a blank line to drop the route and serve from `*.workers.dev` instead.
+Answer the domain prompt with a blank line to drop the route and serve from `*.workers.dev` instead. `setup` keeps the two in step: giving a domain sets `workers_dev` to `false` so the custom domain is the only way in, and leaving it blank sets it to `true` so the Worker still has a route.
 
 ## Continuous Deployment
 
