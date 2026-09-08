@@ -11,6 +11,10 @@ Deploy an igloo and you get:
 - A **CLI** for terminal-native access to your data repo
 - An **MCP server** and **agent skill** so LLM-based tools can browse and retrieve your datasets
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cldixon/igloo)
+
+The button clones this repo into your own GitHub account, provisions the R2 bucket, and wires up CI/CD — see [Continuous Deployment](#continuous-deployment). To set things up by hand instead, follow the Quick Start below.
+
 ## Architecture
 
 Igloo runs entirely on Cloudflare. A single Worker serves both the REST API and
@@ -83,11 +87,42 @@ bun run deploy
 
 This builds the web UI and deploys the Worker together as one unit.
 
-To serve from your own domain, add a route to `wrangler.jsonc` (the zone must be on your Cloudflare account):
+`bun run setup` writes your custom domain into `wrangler.jsonc` as a route. The zone must be on your own Cloudflare account, or the deploy will fail:
 
 ```jsonc
 "routes": [{ "pattern": "data.example.com", "custom_domain": true }]
 ```
+
+Answer the domain prompt with a blank line to drop the route and serve from `*.workers.dev` instead.
+
+## Continuous Deployment
+
+Igloo deploys as a **single Worker** — the API and the web UI ship together as one artifact — so [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) handles the whole pipeline natively.
+
+Connect the repo once:
+
+1. In the Cloudflare dashboard, open your Worker → **Settings** → **Build**.
+2. Connect your GitHub repository.
+3. Set the build command to `bun install && bun test && bun run build` so a failing test blocks the deploy.
+4. Leave the deploy command as `npx wrangler deploy`.
+5. Under **Branch control**, enable **non-production branch builds**.
+
+You then get:
+
+| Event | Result |
+|---|---|
+| Push to `main` | `wrangler deploy` — production updated |
+| Push to any other branch | `wrangler versions upload` — a new version, not promoted to production |
+| Open a pull request | Preview URLs posted as a PR comment |
+
+Each PR comment carries two links: a stable branch alias (`<branch>-<worker>.<subdomain>.workers.dev`) that survives new commits, and a per-commit URL pinned to that exact version.
+
+GitHub Actions (`.github/workflows/ci.yml`) stays the quality gate — it typechecks, tests and builds the Worker, and vets and tests the Go CLI. Workers Builds owns deployment.
+
+### Caveats
+
+- **Preview versions share production bindings.** Workers cannot vary bindings between production and preview builds, so every preview reads the same R2 bucket as production. That is harmless while igloo is read-only; it needs a separate preview bucket via [Wrangler Environments](https://developers.cloudflare.com/workers/wrangler/environments/) once a write path exists.
+- **Preview URLs require no Durable Objects.** Workers that implement a Durable Object do not get preview URLs generated. Igloo does not use them today.
 
 ## Adding Data
 

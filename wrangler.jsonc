@@ -8,6 +8,16 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
 
+  // Public hostname for this instance. `bun run setup` rewrites this line, or
+  // removes it entirely if you do not have a domain — the zone must be on your
+  // own Cloudflare account or the deploy will fail.
+  "routes": [{ "pattern": "data.cldixon.dev", "custom_domain": true }],
+
+  // Keep the workers.dev URL as a fallback, and let non-production branch
+  // builds publish preview URLs (Workers Builds posts them on the PR).
+  "workers_dev": true,
+  "preview_urls": true,
+
   // The SvelteKit SPA build. Navigation requests that do not match a built
   // asset fall through to index.html; run_worker_first explicitly claims the
   // API paths so they reach Hono instead.

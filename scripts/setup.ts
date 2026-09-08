@@ -24,6 +24,33 @@ function setString(source: string, key: string, value: string): string {
   return source.replace(pattern, `$1"${value}"`);
 }
 
+/**
+ * Point the instance at a custom domain, or drop the route entirely.
+ *
+ * The committed config carries the maintainer's own hostname. Deploying that
+ * from a fork fails, because the zone lives on someone else's Cloudflare
+ * account — so a blank answer removes the line rather than leaving a
+ * confusing DNS error for the next person.
+ */
+function setRoutes(source: string, domain: string | null): string {
+  const line = /^[ \t]*"routes"\s*:\s*\[.*\],?[ \t]*\r?\n/m;
+  // Removing the route should take its explanatory comment and the blank line
+  // after it, so the config does not keep instructions for a line it no longer has.
+  const block =
+    /(?:^[ \t]*\/\/.*\r?\n)*^[ \t]*"routes"\s*:\s*\[.*\],?[ \t]*\r?\n\r?\n?/m;
+
+  if (!domain) {
+    return source.replace(block, "");
+  }
+
+  const replacement = `  "routes": [{ "pattern": "${domain}", "custom_domain": true }],\n`;
+  if (line.test(source)) {
+    return source.replace(line, replacement);
+  }
+  // No route configured yet — add one just after the entry point.
+  return source.replace(/^([ \t]*"main"\s*:.*\r?\n)/m, `$1\n${replacement}`);
+}
+
 console.log("\n❄  igloo setup\n");
 
 try {
@@ -37,6 +64,7 @@ const name = ask("Worker name", "igloo");
 const bucket = ask("R2 bucket name", "data-repo");
 const title = ask("Site title", "igloo");
 const tagline = ask("Site tagline", "personal data repository");
+const domain = ask("Custom domain (blank for none)", "").trim();
 
 // Creating a bucket that already exists is an error, so check the list first.
 const existing = await $`bunx wrangler r2 bucket list`.text();
@@ -52,11 +80,15 @@ config = setString(config, "name", name);
 config = setString(config, "bucket_name", bucket);
 config = setString(config, "IGLOO_TITLE", title);
 config = setString(config, "IGLOO_TAGLINE", tagline);
+config = setRoutes(config, domain || null);
 writeFileSync(CONFIG, config);
 
-console.log(`✓ Wrote ${CONFIG}\n`);
+console.log(`✓ Wrote ${CONFIG}`);
+console.log(
+  domain
+    ? `✓ Routing ${domain} to this Worker (the zone must be on your account)\n`
+    : `✓ No custom domain — your igloo will be served from *.workers.dev\n`
+);
 console.log("Next steps:");
 console.log("  bun run dev      # browse locally at http://localhost:5173");
 console.log("  bun run deploy   # build the UI and deploy the Worker\n");
-console.log("To serve from your own domain, add a route to wrangler.jsonc:");
-console.log('  "routes": [{ "pattern": "data.example.com", "custom_domain": true }]\n');
