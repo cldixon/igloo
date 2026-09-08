@@ -159,7 +159,7 @@ There are no secrets or `.env` files — the R2 binding authenticates through yo
 
 ## API
 
-The API is read-only and exposes three data endpoints plus a health check:
+The API is read-only. It exposes three data endpoints, an instance config endpoint, a health check, and the MCP endpoint:
 
 | Endpoint | Description |
 |---|---|
