@@ -1,0 +1,38 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "igloo",
+  "main": "./src/worker.ts",
+  "compatibility_date": "2026-09-08",
+  // nodejs_compat is required by the MCP SDK's streamable-HTTP transport,
+  // which is shimmed onto node:stream via fetch-to-node.
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+
+  // Public hostname for this instance. `bun run setup` rewrites this line, or
+  // removes it entirely if you do not have a domain — the zone must be on your
+  // own Cloudflare account or the deploy will fail.
+  "routes": [{ "pattern": "data.cldixon.dev", "custom_domain": true }],
+
+  // Keep the workers.dev URL as a fallback, and let non-production branch
+  // builds publish preview URLs (Workers Builds posts them on the PR).
+  "workers_dev": true,
+  "preview_urls": true,
+
+  // The SvelteKit SPA build. Navigation requests that do not match a built
+  // asset fall through to index.html; run_worker_first explicitly claims the
+  // API paths so they reach Hono instead.
+  "assets": {
+    "directory": "./web/build",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/health", "/mcp", "/mcp/*"]
+  },
+
+  "r2_buckets": [{ "binding": "DATA", "bucket_name": "data-repo" }],
+
+  "vars": {
+    "IGLOO_TITLE": "igloo",
+    "IGLOO_TAGLINE": "personal data repository",
+    "IGLOO_THEME": "repo"
+  }
+}

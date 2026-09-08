@@ -9,3 +9,7 @@ dist/
 
 # Go CLI
 cli/igloo
+
+# Cloudflare
+web/build/
+.wrangler/

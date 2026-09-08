@@ -1,93 +1,83 @@
-import {
-  S3Client,
-  ListObjectsV2Command,
-  GetObjectCommand,
-  HeadObjectCommand,
-} from "@aws-sdk/client-s3";
+/// <reference types="@cloudflare/workers-types" />
+
 import type { DirectoryEntry, FileMetadata } from "../shared/types.js";
 
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: process.env.R2_ENDPOINT ?? process.env.S3_ENDPOINT,
-  credentials: {
-    accessKeyId: (process.env.R2_ACCESS_KEY_ID ?? process.env.S3_ACCESS_KEY_ID)!,
-    secretAccessKey: (process.env.R2_SECRET_ACCESS_KEY ?? process.env.S3_SECRET_ACCESS_KEY)!,
-  },
-});
+/**
+ * List a single directory level. R2 pages at 1000 keys, so walk the cursor —
+ * a dataset prefix can easily exceed one page.
+ */
+export async function listObjects(
+  bucket: R2Bucket,
+  prefix: string
+): Promise<DirectoryEntry[]> {
+  const directories: DirectoryEntry[] = [];
+  const files: DirectoryEntry[] = [];
+  let cursor: string | undefined;
 
-const BUCKET = (process.env.R2_BUCKET_NAME ?? process.env.S3_BUCKET_NAME)!;
-
-export async function listObjects(prefix: string): Promise<DirectoryEntry[]> {
-  const command = new ListObjectsV2Command({
-    Bucket: BUCKET,
-    Prefix: prefix || undefined,
-    Delimiter: "/",
-  });
-  const response = await s3.send(command);
-
-  const directories: DirectoryEntry[] = (response.CommonPrefixes ?? []).map(
-    (cp) => {
-      const fullPath = cp.Prefix!;
-      const name = fullPath.slice(prefix.length).replace(/\/$/, "");
-      return { name, path: fullPath, type: "directory" as const };
-    }
-  );
-
-  const files: DirectoryEntry[] = (response.Contents ?? [])
-    .filter((obj) => obj.Key !== prefix)
-    .map((obj) => {
-      const name = obj.Key!.slice(prefix.length);
-      const extension = name.includes(".") ? name.split(".").pop() : undefined;
-      return {
-        name,
-        path: obj.Key!,
-        type: "file" as const,
-        size: obj.Size,
-        lastModified: obj.LastModified?.toISOString(),
-        extension,
-      };
+  for (;;) {
+    const page = await bucket.list({
+      prefix: prefix || undefined,
+      delimiter: "/",
+      cursor,
     });
+
+    for (const fullPath of page.delimitedPrefixes) {
+      directories.push({
+        name: fullPath.slice(prefix.length).replace(/\/$/, ""),
+        path: fullPath,
+        type: "directory",
+      });
+    }
+
+    for (const obj of page.objects) {
+      // Skip the zero-byte marker some tools write for the directory itself.
+      if (obj.key === prefix) continue;
+      const name = obj.key.slice(prefix.length);
+      files.push({
+        name,
+        path: obj.key,
+        type: "file",
+        size: obj.size,
+        lastModified: obj.uploaded.toISOString(),
+        extension: name.includes(".") ? name.split(".").pop() : undefined,
+      });
+    }
+
+    if (!page.truncated) break;
+    cursor = page.cursor;
+  }
 
   return [...directories, ...files];
 }
 
-export async function getReadme(prefix: string): Promise<string | null> {
-  try {
-    const command = new GetObjectCommand({
-      Bucket: BUCKET,
-      Key: `${prefix}README.md`,
-    });
-    const response = await s3.send(command);
-    return (await response.Body?.transformToString()) ?? null;
-  } catch (err: any) {
-    if (err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
-      return null;
-    }
-    throw err;
-  }
+export async function getReadme(
+  bucket: R2Bucket,
+  prefix: string
+): Promise<string | null> {
+  const object = await bucket.get(`${prefix}README.md`);
+  return object ? await object.text() : null;
 }
 
-export async function getObject(key: string) {
-  const command = new GetObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
-  });
-  return s3.send(command);
+export function getObject(
+  bucket: R2Bucket,
+  key: string
+): Promise<R2ObjectBody | null> {
+  return bucket.get(key);
 }
 
-export async function getObjectMetadata(key: string): Promise<FileMetadata> {
-  const command = new HeadObjectCommand({
-    Bucket: BUCKET,
-    Key: key,
-  });
-  const response = await s3.send(command);
-  const name = key.split("/").pop() ?? key;
+export async function getObjectMetadata(
+  bucket: R2Bucket,
+  key: string
+): Promise<FileMetadata | null> {
+  const object = await bucket.head(key);
+  if (!object) return null;
+
   return {
-    name,
+    name: key.split("/").pop() ?? key,
     path: key,
-    size: response.ContentLength ?? 0,
-    lastModified: response.LastModified?.toISOString() ?? "",
-    contentType: response.ContentType ?? "application/octet-stream",
-    etag: response.ETag,
+    size: object.size,
+    lastModified: object.uploaded.toISOString(),
+    contentType: object.httpMetadata?.contentType ?? "application/octet-stream",
+    etag: object.httpEtag,
   };
 }

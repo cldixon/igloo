@@ -5,6 +5,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { toReqRes, toFetchResponse } from "fetch-to-node";
 import { listObjects, getReadme, getObject, getObjectMetadata } from "./storage.js";
 import { loadConfig } from "./routes/config.js";
+import type { Bindings } from "./bindings.js";
 
 // ---------------------------------------------------------------------------
 // Text file detection
@@ -42,7 +43,7 @@ function formatBytes(bytes: number): string {
 // MCP server factory — fresh instance per request (stateless mode)
 // ---------------------------------------------------------------------------
 
-function createMcpServer(): McpServer {
+function createMcpServer(env: Bindings): McpServer {
   const server = new McpServer({
     name: "igloo",
     version: "0.1.0",
@@ -80,8 +81,8 @@ function createMcpServer(): McpServer {
       }
 
       const [entries, readme] = await Promise.all([
-        listObjects(normalizedPath),
-        getReadme(normalizedPath),
+        listObjects(env.DATA, normalizedPath),
+        getReadme(env.DATA, normalizedPath),
       ]);
 
       const lines: string[] = [];
@@ -123,7 +124,11 @@ function createMcpServer(): McpServer {
       },
     },
     async ({ path }) => {
-      const meta = await getObjectMetadata(path);
+      const meta = await getObjectMetadata(env.DATA, path);
+      if (!meta) {
+        return { content: [{ type: "text" as const, text: `File not found: ${path}` }] };
+      }
+
       const formatted = [
         `Name:          ${meta.name}`,
         `Path:          ${meta.path}`,
@@ -154,11 +159,14 @@ function createMcpServer(): McpServer {
       },
     },
     async ({ path }) => {
-      const meta = await getObjectMetadata(path);
+      const meta = await getObjectMetadata(env.DATA, path);
+      if (!meta) {
+        return { content: [{ type: "text" as const, text: `File not found: ${path}` }] };
+      }
 
       if (isTextFile(path, meta.contentType) && meta.size <= MAX_INLINE_SIZE) {
-        const response = await getObject(path);
-        const content = await response.Body?.transformToString() ?? "";
+        const object = await getObject(env.DATA, path);
+        const content = object ? await object.text() : "";
         return {
           content: [{
             type: "text" as const,
@@ -193,7 +201,7 @@ function createMcpServer(): McpServer {
       inputSchema: {},
     },
     async () => {
-      const config = loadConfig();
+      const config = loadConfig(env);
       return {
         content: [{ type: "text" as const, text: JSON.stringify(config, null, 2) }],
       };
@@ -207,11 +215,11 @@ function createMcpServer(): McpServer {
 // Hono route — Streamable HTTP transport (stateless)
 // ---------------------------------------------------------------------------
 
-export const mcpRoute = new Hono();
+export const mcpRoute = new Hono<{ Bindings: Bindings }>();
 
 mcpRoute.post("/", async (c) => {
   const { req, res } = toReqRes(c.req.raw);
-  const server = createMcpServer();
+  const server = createMcpServer(c.env);
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
   });
