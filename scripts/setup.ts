@@ -45,8 +45,7 @@ function setRoutes(source: string, domain: string | null): string {
   const line = /^[ \t]*"routes"\s*:\s*\[.*\],?[ \t]*\r?\n/m;
   // Removing the route should take its explanatory comment and the blank line
   // after it, so the config does not keep instructions for a line it no longer has.
-  const block =
-    /(?:^[ \t]*\/\/.*\r?\n)*^[ \t]*"routes"\s*:\s*\[.*\],?[ \t]*\r?\n\r?\n?/m;
+  const block = /(?:^[ \t]*\/\/.*\r?\n)*^[ \t]*"routes"\s*:\s*\[.*\],?[ \t]*\r?\n\r?\n?/m;
 
   if (!domain) {
     return source.replace(block, "");
@@ -99,7 +98,7 @@ console.log(`✓ Wrote ${CONFIG}`);
 console.log(
   domain
     ? `✓ Routing ${domain} to this Worker (the zone must be on your account)\n`
-    : `✓ No custom domain — your igloo will be served from *.workers.dev\n`
+    : `✓ No custom domain — your igloo will be served from *.workers.dev\n`,
 );
 console.log("Next steps:");
 console.log("  bun run dev      # browse locally at http://localhost:5173");

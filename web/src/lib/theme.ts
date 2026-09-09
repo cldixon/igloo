@@ -15,9 +15,7 @@ function getInitialColorMode(): ColorMode {
   if (!browser) return "dark";
   const stored = localStorage.getItem("igloo-color-mode");
   if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 export const colorMode = writable<ColorMode>(getInitialColorMode());
@@ -77,8 +75,8 @@ if (browser) {
   };
 
   // Apply CSS variables and font whenever theme or color mode changes
-  derived([visualTheme, colorMode], ([$vt, $cm]) => ({ vt: $vt, cm: $cm }))
-    .subscribe(({ vt, cm }) => {
+  derived([visualTheme, colorMode], ([$vt, $cm]) => ({ vt: $vt, cm: $cm })).subscribe(
+    ({ vt, cm }) => {
       const def = themes[vt];
       const colors = def[cm];
       const root = document.documentElement;
@@ -114,5 +112,6 @@ if (browser) {
       } else if (existingLink) {
         existingLink.remove();
       }
-    });
+    },
+  );
 }

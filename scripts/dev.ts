@@ -14,9 +14,7 @@ const local = process.argv.includes("--local");
 const wranglerArgs = ["wrangler", "dev", "--port", "8787"];
 if (!local) wranglerArgs.push("--remote");
 
-console.log(
-  `igloo dev — Worker on :8787 (${local ? "local" : "remote"} R2), UI on :5173`
-);
+console.log(`igloo dev — Worker on :8787 (${local ? "local" : "remote"} R2), UI on :5173`);
 
 const worker = spawn("bunx", wranglerArgs, { stdio: "inherit" });
 const web = spawn("bun", ["--bun", "vite", "dev"], {
@@ -33,7 +31,10 @@ function cleanup() {
 process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
 
-for (const [name, proc] of [["worker", worker], ["web", web]] as const) {
+for (const [name, proc] of [
+  ["worker", worker],
+  ["web", web],
+] as const) {
   proc.on("exit", (code) => {
     if (code !== null && code !== 0) {
       console.error(`${name} exited with code ${code}`);

@@ -23,7 +23,9 @@
         <span class="size">{formatBytes(entry.size)}</span>
       {/if}
       {#if entry.lastModified}
-        <span class="date" title={formatDateFull(entry.lastModified)}>{formatDate(entry.lastModified)}</span>
+        <span class="date" title={formatDateFull(entry.lastModified)}
+          >{formatDate(entry.lastModified)}</span
+        >
       {/if}
       <a
         href={getDownloadUrl(entry.path)}
@@ -31,7 +33,14 @@
         title="Download {entry.name}"
         aria-label="Download {entry.name}"
       >
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          width="16"
+          height="16"
+        >
           <path d="M10 3v10M6 10l4 4 4-4M4 17h12" />
         </svg>
       </a>
