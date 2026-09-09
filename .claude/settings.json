@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "igloo": {
+      "type": "url",
+      "url": "https://data.cldixon.dev/mcp"
+    }
+  }
+}

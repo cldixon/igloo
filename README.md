@@ -101,10 +101,10 @@ Igloo deploys as a **single Worker** — the API and the web UI ship together as
 
 The two systems have separate jobs, and neither does the other's work:
 
-| System | Responsibility |
-|---|---|
+| System                                          | Responsibility                                                                                                                                                    |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **GitHub Actions** (`.github/workflows/ci.yml`) | Every quality check. Worker: type check, `svelte-check`, tests, build, and `wrangler deploy --dry-run` to validate the config. CLI: `gofmt`, `go vet`, `go test`. |
-| **Workers Builds** | Building and deploying only |
+| **Workers Builds**                              | Building and deploying only                                                                                                                                       |
 
 Connect the repo once:
 
@@ -116,11 +116,11 @@ Connect the repo once:
 
 You then get:
 
-| Event | Result |
-|---|---|
-| Push to `main` | `wrangler deploy` — production updated |
+| Event                    | Result                                                                 |
+| ------------------------ | ---------------------------------------------------------------------- |
+| Push to `main`           | `wrangler deploy` — production updated                                 |
 | Push to any other branch | `wrangler versions upload` — a new version, not promoted to production |
-| Open a pull request | Preview URLs posted as a PR comment |
+| Open a pull request      | Preview URLs posted as a PR comment                                    |
 
 Each PR comment carries two links: a stable branch alias (`<branch>-<worker>.<subdomain>.workers.dev`) that survives new commits, and a per-commit URL pinned to that exact version. You can also publish a preview by hand with `bun run deploy:preview`.
 
@@ -147,13 +147,13 @@ A `README.md` at any prefix is rendered inline when browsing that directory.
 
 All instance configuration lives in `wrangler.jsonc`:
 
-| Setting | Description |
-|---|---|
-| `name` | Worker name |
-| `r2_buckets[0].bucket_name` | R2 bucket holding your data |
-| `vars.IGLOO_TITLE` | Site title |
-| `vars.IGLOO_TAGLINE` | Site tagline |
-| `vars.IGLOO_THEME` | Default visual theme (`repo` or `index`) |
+| Setting                     | Description                              |
+| --------------------------- | ---------------------------------------- |
+| `name`                      | Worker name                              |
+| `r2_buckets[0].bucket_name` | R2 bucket holding your data              |
+| `vars.IGLOO_TITLE`          | Site title                               |
+| `vars.IGLOO_TAGLINE`        | Site tagline                             |
+| `vars.IGLOO_THEME`          | Default visual theme (`repo` or `index`) |
 
 There are no secrets or `.env` files — the R2 binding authenticates through your Cloudflare account.
 
@@ -161,14 +161,14 @@ There are no secrets or `.env` files — the R2 binding authenticates through yo
 
 The API is read-only. It exposes three data endpoints, an instance config endpoint, a health check, and the MCP endpoint:
 
-| Endpoint | Description |
-|---|---|
-| `GET /health` | Health check |
-| `GET /api/list?path=` | List directory contents (files, subdirectories, README) |
-| `GET /api/download?path=` | Download a file |
-| `GET /api/metadata?path=` | Get file metadata (size, type, modified date, etag) |
-| `GET /api/config` | Instance configuration |
-| `POST /mcp` | MCP endpoint (streamable HTTP, stateless) |
+| Endpoint                  | Description                                             |
+| ------------------------- | ------------------------------------------------------- |
+| `GET /health`             | Health check                                            |
+| `GET /api/list?path=`     | List directory contents (files, subdirectories, README) |
+| `GET /api/download?path=` | Download a file                                         |
+| `GET /api/metadata?path=` | Get file metadata (size, type, modified date, etag)     |
+| `GET /api/config`         | Instance configuration                                  |
+| `POST /mcp`               | MCP endpoint (streamable HTTP, stateless)               |
 
 See [`skills/igloo/references/api.md`](skills/igloo/references/api.md) for full request/response documentation.
 
@@ -203,23 +203,23 @@ The web interface provides a directory browser modeled after classic server inde
 
 The UI ships with two visual themes and a light/dark mode toggle, all accessible from the settings menu (gear icon) in the top-right corner:
 
-| Theme | Description |
-|---|---|
-| **Repo** | Card-based layout with rounded corners, JetBrains Mono + Inter fonts, and a modern repository feel |
+| Theme     | Description                                                                                                           |
+| --------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Repo**  | Card-based layout with rounded corners, JetBrains Mono + Inter fonts, and a modern repository feel                    |
 | **Index** | Classic Apache `mod_autoindex` directory listing — monospace table, `[DIR]`/`[   ]` markers, "Index of /path" heading |
 
 Users can override the theme and color mode in-browser via the settings menu — preferences are saved to `localStorage`.
 
 ## Tech Stack
 
-| Component | Technology |
-|---|---|
-| Runtime | [Cloudflare Workers](https://workers.cloudflare.com) |
-| API | [Hono](https://hono.dev) |
-| Storage | [Cloudflare R2](https://developers.cloudflare.com/r2/) |
-| Web UI | [SvelteKit](https://svelte.dev) + Svelte 5 (SPA, served via Workers Static Assets) |
-| CLI | [Go](https://go.dev) + [Cobra](https://github.com/spf13/cobra) + [Charm](https://charm.sh) |
-| Tooling | [Bun](https://bun.sh) + [Wrangler](https://developers.cloudflare.com/workers/wrangler/) |
+| Component | Technology                                                                                 |
+| --------- | ------------------------------------------------------------------------------------------ |
+| Runtime   | [Cloudflare Workers](https://workers.cloudflare.com)                                       |
+| API       | [Hono](https://hono.dev)                                                                   |
+| Storage   | [Cloudflare R2](https://developers.cloudflare.com/r2/)                                     |
+| Web UI    | [SvelteKit](https://svelte.dev) + Svelte 5 (SPA, served via Workers Static Assets)         |
+| CLI       | [Go](https://go.dev) + [Cobra](https://github.com/spf13/cobra) + [Charm](https://charm.sh) |
+| Tooling   | [Bun](https://bun.sh) + [Wrangler](https://developers.cloudflare.com/workers/wrangler/)    |
 
 ## License
 

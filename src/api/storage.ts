@@ -6,10 +6,7 @@ import type { DirectoryEntry, FileMetadata } from "../shared/types.js";
  * List a single directory level. R2 pages at 1000 keys, so walk the cursor —
  * a dataset prefix can easily exceed one page.
  */
-export async function listObjects(
-  bucket: R2Bucket,
-  prefix: string
-): Promise<DirectoryEntry[]> {
+export async function listObjects(bucket: R2Bucket, prefix: string): Promise<DirectoryEntry[]> {
   const directories: DirectoryEntry[] = [];
   const files: DirectoryEntry[] = [];
   let cursor: string | undefined;
@@ -50,24 +47,18 @@ export async function listObjects(
   return [...directories, ...files];
 }
 
-export async function getReadme(
-  bucket: R2Bucket,
-  prefix: string
-): Promise<string | null> {
+export async function getReadme(bucket: R2Bucket, prefix: string): Promise<string | null> {
   const object = await bucket.get(`${prefix}README.md`);
   return object ? await object.text() : null;
 }
 
-export function getObject(
-  bucket: R2Bucket,
-  key: string
-): Promise<R2ObjectBody | null> {
+export function getObject(bucket: R2Bucket, key: string): Promise<R2ObjectBody | null> {
   return bucket.get(key);
 }
 
 export async function getObjectMetadata(
   bucket: R2Bucket,
-  key: string
+  key: string,
 ): Promise<FileMetadata | null> {
   const object = await bucket.head(key);
   if (!object) return null;

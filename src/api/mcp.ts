@@ -12,14 +12,36 @@ import type { Bindings } from "./bindings.js";
 // ---------------------------------------------------------------------------
 
 const TEXT_EXTENSIONS = new Set([
-  "csv", "json", "jsonl", "ndjson",
-  "md", "markdown", "txt", "text", "log",
-  "yaml", "yml", "toml",
-  "xml", "html", "htm", "css",
-  "js", "ts", "jsx", "tsx",
-  "py", "r", "sql",
-  "sh", "bash", "zsh",
-  "env", "ini", "cfg", "conf",
+  "csv",
+  "json",
+  "jsonl",
+  "ndjson",
+  "md",
+  "markdown",
+  "txt",
+  "text",
+  "log",
+  "yaml",
+  "yml",
+  "toml",
+  "xml",
+  "html",
+  "htm",
+  "css",
+  "js",
+  "ts",
+  "jsx",
+  "tsx",
+  "py",
+  "r",
+  "sql",
+  "sh",
+  "bash",
+  "zsh",
+  "env",
+  "ini",
+  "cfg",
+  "conf",
 ]);
 
 const MAX_INLINE_SIZE = 1024 * 1024; // 1MB
@@ -58,7 +80,7 @@ function createMcpServer(env: Bindings): McpServer {
     },
     async () => ({
       content: [{ type: "text" as const, text: JSON.stringify({ status: "ok" }, null, 2) }],
-    })
+    }),
   );
 
   server.registerTool(
@@ -109,7 +131,7 @@ function createMcpServer(env: Bindings): McpServer {
       }
 
       return { content: [{ type: "text" as const, text: lines.join("\n") }] };
-    }
+    },
   );
 
   server.registerTool(
@@ -141,7 +163,7 @@ function createMcpServer(env: Bindings): McpServer {
         .join("\n");
 
       return { content: [{ type: "text" as const, text: formatted }] };
-    }
+    },
   );
 
   server.registerTool(
@@ -168,36 +190,41 @@ function createMcpServer(env: Bindings): McpServer {
         const object = await getObject(env.DATA, path);
         const content = object ? await object.text() : "";
         return {
-          content: [{
-            type: "text" as const,
-            text: `File: ${meta.name} (${formatBytes(meta.size)}, ${meta.contentType})\n\n${content}`,
-          }],
+          content: [
+            {
+              type: "text" as const,
+              text: `File: ${meta.name} (${formatBytes(meta.size)}, ${meta.contentType})\n\n${content}`,
+            },
+          ],
         };
       } else {
         const reason = !isTextFile(path, meta.contentType)
           ? "binary file"
           : "file too large for inline display";
         return {
-          content: [{
-            type: "text" as const,
-            text: [
-              `File: ${meta.name} (${reason})`,
-              `Path: ${meta.path}`,
-              `Size: ${formatBytes(meta.size)}`,
-              `Type: ${meta.contentType}`,
-              `Last Modified: ${meta.lastModified}`,
-            ].join("\n"),
-          }],
+          content: [
+            {
+              type: "text" as const,
+              text: [
+                `File: ${meta.name} (${reason})`,
+                `Path: ${meta.path}`,
+                `Size: ${formatBytes(meta.size)}`,
+                `Type: ${meta.contentType}`,
+                `Last Modified: ${meta.lastModified}`,
+              ].join("\n"),
+            },
+          ],
         };
       }
-    }
+    },
   );
 
   server.registerTool(
     "igloo_config",
     {
       title: "Get Igloo Configuration",
-      description: "Get the igloo instance configuration. Returns the instance title, tagline, and visual theme.",
+      description:
+        "Get the igloo instance configuration. Returns the instance title, tagline, and visual theme.",
       inputSchema: {},
     },
     async () => {
@@ -205,7 +232,7 @@ function createMcpServer(env: Bindings): McpServer {
       return {
         content: [{ type: "text" as const, text: JSON.stringify(config, null, 2) }],
       };
-    }
+    },
   );
 
   return server;

@@ -16,7 +16,7 @@ const mockGetObjectMetadata = mock(
       lastModified: "2024-12-20T15:30:00.000Z",
       contentType: "text/csv",
       etag: '"abc123"',
-    }) as any
+    }) as any,
 );
 
 mock.module("./storage.js", () => ({
@@ -76,9 +76,7 @@ async function mcpRequest(method: string, params?: object) {
   });
   const text = await res.text();
   // The StreamableHTTP transport writes SSE lines: "data: {...}\n"
-  const dataLine = text
-    .split("\n")
-    .find((l) => l.startsWith("data: "));
+  const dataLine = text.split("\n").find((l) => l.startsWith("data: "));
   if (!dataLine) {
     throw new Error(`No SSE data line in response:\n${text}`);
   }
@@ -108,7 +106,7 @@ beforeEach(() => {
         lastModified: "2024-12-20T15:30:00.000Z",
         contentType: "text/csv",
         etag: '"abc123"',
-      }) as any
+      }) as any,
   );
 });
 
@@ -246,9 +244,7 @@ describe("igloo_read_file", () => {
       lastModified: "2024-12-20T15:30:00.000Z",
       contentType: "text/csv",
     }));
-    mockGetObject.mockImplementationOnce(
-      async () => ({ text: async () => "a,b,c\n1,2,3" }) as any
-    );
+    mockGetObject.mockImplementationOnce(async () => ({ text: async () => "a,b,c\n1,2,3" }) as any);
 
     const { body } = await mcpRequest("tools/call", {
       name: "igloo_read_file",

@@ -60,8 +60,11 @@
                 <a href={getDownloadUrl(entry.path)}>{entry.name}</a>
               {/if}
             </td>
-            <td class="col-date">{entry.lastModified ? formatDateFull(entry.lastModified) : "-"}</td>
-            <td class="col-size">{entry.type === "file" && entry.size != null ? formatBytes(entry.size) : "-"}</td>
+            <td class="col-date">{entry.lastModified ? formatDateFull(entry.lastModified) : "-"}</td
+            >
+            <td class="col-size"
+              >{entry.type === "file" && entry.size != null ? formatBytes(entry.size) : "-"}</td
+            >
           </tr>
         {/each}
       {/if}

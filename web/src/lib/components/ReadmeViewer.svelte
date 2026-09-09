@@ -8,7 +8,14 @@
 
 <div class="readme-card">
   <div class="readme-header">
-    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" width="16" height="16">
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      width="16"
+      height="16"
+    >
       <path d="M4 2h8l4 4v12a2 2 0 01-2 2H4a2 2 0 01-2-2V4a2 2 0 012-2z" />
       <path d="M5 10h10M5 13h7" />
     </svg>
@@ -58,9 +65,15 @@
     color: var(--text-primary);
   }
 
-  .readme-content :global(h1) { font-size: 1.5rem; }
-  .readme-content :global(h2) { font-size: 1.25rem; }
-  .readme-content :global(h3) { font-size: 1.1rem; }
+  .readme-content :global(h1) {
+    font-size: 1.5rem;
+  }
+  .readme-content :global(h2) {
+    font-size: 1.25rem;
+  }
+  .readme-content :global(h3) {
+    font-size: 1.1rem;
+  }
 
   .readme-content :global(p) {
     margin-bottom: 1rem;

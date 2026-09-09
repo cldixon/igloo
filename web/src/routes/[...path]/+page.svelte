@@ -7,7 +7,11 @@
 </script>
 
 <svelte:head>
-  <title>{data.currentPath ? data.currentPath.replace(/\/$/, "").split("/").pop() + " — " + $config.title : $config.title}</title>
+  <title
+    >{data.currentPath
+      ? data.currentPath.replace(/\/$/, "").split("/").pop() + " — " + $config.title
+      : $config.title}</title
+  >
 </svelte:head>
 
 {#if $visualTheme === "index"}

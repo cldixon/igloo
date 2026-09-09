@@ -5,7 +5,9 @@
 <span class="file-icon" aria-hidden="true">
   {#if type === "directory"}
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-      <path d="M2 5a2 2 0 012-2h3.586a1 1 0 01.707.293L9.707 4.707A1 1 0 0010.414 5H16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V5z" />
+      <path
+        d="M2 5a2 2 0 012-2h3.586a1 1 0 01.707.293L9.707 4.707A1 1 0 0010.414 5H16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V5z"
+      />
     </svg>
   {:else if extension === "parquet"}
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -24,8 +26,12 @@
     </svg>
   {:else if extension === "json" || extension === "yaml" || extension === "yml"}
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
-      <path d="M6 3C4.5 3 4 4.5 4 5.5S4.5 7 5 7.5C4 8 4 9 4 10s0 2 1 2.5C4.5 13 4 14.5 4 15.5S4.5 17 6 17" />
-      <path d="M14 3c1.5 0 2 1.5 2 2.5S15.5 7 15 7.5c1 .5 1 1.5 1 2.5s0 2-1 2.5c.5.5 1 2 1 3S15.5 17 14 17" />
+      <path
+        d="M6 3C4.5 3 4 4.5 4 5.5S4.5 7 5 7.5C4 8 4 9 4 10s0 2 1 2.5C4.5 13 4 14.5 4 15.5S4.5 17 6 17"
+      />
+      <path
+        d="M14 3c1.5 0 2 1.5 2 2.5S15.5 7 15 7.5c1 .5 1 1.5 1 2.5s0 2-1 2.5c.5.5 1 2 1 3S15.5 17 14 17"
+      />
       <circle cx="8" cy="10" r="0.75" fill="currentColor" />
       <circle cx="12" cy="10" r="0.75" fill="currentColor" />
     </svg>
