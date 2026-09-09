@@ -13,9 +13,14 @@
   // own Cloudflare account or the deploy will fail.
   "routes": [{ "pattern": "data.cldixon.dev", "custom_domain": true }],
 
-  // Keep the workers.dev URL as a fallback, and let non-production branch
-  // builds publish preview URLs (Workers Builds posts them on the PR).
-  "workers_dev": true,
+  // The custom domain above is the only way in, so the Worker is not also
+  // served from a second hostname on workers.dev. `bun run setup` flips this
+  // back on for instances with no custom domain, which would otherwise deploy
+  // a Worker with no route at all.
+  "workers_dev": false,
+
+  // Set explicitly because it otherwise follows `workers_dev` — leaving it
+  // implicit would silently turn off per-branch preview URLs.
   "preview_urls": true,
 
   // The SvelteKit SPA build. Navigation requests that do not match a built

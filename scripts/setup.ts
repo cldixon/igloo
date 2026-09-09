@@ -24,6 +24,15 @@ function setString(source: string, key: string, value: string): string {
   return source.replace(pattern, `$1"${value}"`);
 }
 
+/** Replace a "key": true|false pair in the JSONC without disturbing comments. */
+function setBool(source: string, key: string, value: boolean): string {
+  const pattern = new RegExp(`("${key}"\\s*:\\s*)(?:true|false)`);
+  if (!pattern.test(source)) {
+    throw new Error(`Could not find "${key}" in ${CONFIG}`);
+  }
+  return source.replace(pattern, `$1${value}`);
+}
+
 /**
  * Point the instance at a custom domain, or drop the route entirely.
  *
@@ -81,6 +90,9 @@ config = setString(config, "bucket_name", bucket);
 config = setString(config, "IGLOO_TITLE", title);
 config = setString(config, "IGLOO_TAGLINE", tagline);
 config = setRoutes(config, domain || null);
+// Without a custom domain, workers.dev is the only route the Worker has —
+// leaving it off would deploy something unreachable.
+config = setBool(config, "workers_dev", !domain);
 writeFileSync(CONFIG, config);
 
 console.log(`✓ Wrote ${CONFIG}`);
