@@ -11,11 +11,20 @@ import {
   getMaintainers,
   instancesBy,
   instancesFor,
+  parseSearch,
+  searchDataDirs,
 } from "./db.js";
 import { JetstreamDO } from "./jetstream.js";
 import { consumeIndexBatch, type IndexMessage } from "./queue.js";
 import { reconcile } from "./reconcile.js";
-import { dataDirPage, feedPage, instancePage, maintainerPage, notFoundPage } from "./views.js";
+import {
+  dataDirPage,
+  feedPage,
+  instancePage,
+  maintainerPage,
+  notFoundPage,
+  searchPage,
+} from "./views.js";
 
 /** Bindings from cloudflare.config.ts, plus optional secrets (cf workers secrets). */
 export type AppEnv = {
@@ -64,6 +73,34 @@ app.get("/", async (c) => {
   ]);
   const next = items.length === FEED_PAGE_SIZE ? items.at(-1)!.createdAt : null;
   return c.html(feedPage(viewer, items, maintainers, instances, next));
+});
+
+app.get("/search", async (c) => {
+  const db = await getDb(c.env.DB);
+  const q = (c.req.query("q") ?? "").slice(0, 200);
+  const items = q ? await searchDataDirs(db, parseSearch(q)) : [];
+  const [viewer, maintainers, instances] = await Promise.all([
+    viewerOf(c, db),
+    getMaintainers(
+      db,
+      items.map((d) => d.did),
+    ),
+    instancesFor(
+      db,
+      items.map((d) => ({ did: d.did, url: d.instanceUrl })),
+    ),
+  ]);
+  return c.html(searchPage(viewer, q, items, maintainers, instances));
+});
+
+/** Search for agents and scripts: the same query, as records. */
+app.get("/api/search", async (c) => {
+  const db = await getDb(c.env.DB);
+  const q = (c.req.query("q") ?? "").slice(0, 200);
+  const items = q ? await searchDataDirs(db, parseSearch(q)) : [];
+  return c.json({
+    dataDirs: items.map((d) => ({ uri: d.uri, cid: d.cid, did: d.did, record: d.record })),
+  });
 });
 
 app.get("/d/:did/:name", async (c) => {

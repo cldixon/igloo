@@ -40,6 +40,7 @@ header.site .wrap { display: flex; align-items: center; gap: 16px; padding-block
 .brand:hover { text-decoration: none; }
 .tagline { color: var(--muted); font-size: 0.9rem; }
 .spacer { flex: 1; }
+form.search input { font: inherit; font-size: 0.88rem; padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); width: min(22rem, 60vw); }
 .who { font-size: 0.9rem; color: var(--muted); display: flex; gap: 10px; align-items: center; }
 .who form { margin: 0; }
 button, .btn { font: inherit; font-size: 0.85rem; border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 6px; padding: 4px 12px; cursor: pointer; }
@@ -100,6 +101,13 @@ export function layout(title: string, viewer: Viewer, body: Html): Html {
           <div class="wrap">
             <a class="brand" href="/">❄ igloo</a>
             <span class="tagline">personal data spaces, on AT Protocol</span>
+            <form class="search" method="get" action="/search" role="search">
+              <input
+                name="q"
+                placeholder="Search, e.g. col:lat col:lon"
+                aria-label="Search data dirs"
+              />
+            </form>
             <span class="spacer"></span>
             <span class="who">
               ${
@@ -353,14 +361,14 @@ function schemaSection(files: IndexedDataDir["record"]["files"]): Html {
             <table>
               <tbody>
                 ${f.schema!.map(
-                (c) =>
-                  html`<tr>
-                    <td>
-                      <a href="/search?q=${encodeURIComponent(`col:${c.name}`)}">${c.name}</a>
-                    </td>
-                    <td class="muted">${c.type}</td>
-                  </tr>`,
-              )}
+                  (c) =>
+                    html`<tr>
+                      <td>
+                        <a href="/search?q=${encodeURIComponent(`col:${c.name}`)}">${c.name}</a>
+                      </td>
+                      <td class="muted">${c.type}</td>
+                    </tr>`,
+                )}
               </tbody>
             </table>
           </div>
@@ -483,6 +491,42 @@ export function maintainerPage(
       }
       <h2>Data dirs</h2>
       ${dataDirList(items)}`,
+  );
+}
+
+export function searchPage(
+  viewer: Viewer,
+  q: string,
+  items: IndexedDataDir[],
+  maintainers: Map<string, Maintainer>,
+  instances: Map<string, IndexedInstance>,
+): Html {
+  return layout(
+    q ? `${q} · search · igloo` : "Search · igloo",
+    viewer,
+    html`<div style="display:grid;gap:8px">
+        <span class="eyebrow">Search</span>
+        <form class="search" method="get" action="/search" style="display:flex;gap:8px">
+          <input name="q" value="${q}" style="width:100%" aria-label="Search data dirs" />
+          <button>Search</button>
+        </form>
+        <p class="muted" style="margin:0">
+          Words match names, titles, descriptions, file names and column names.
+          <code>col:lat</code> needs a column, <code>type:DATE</code> a column type,
+          <code>tag:hydrology</code> a tag. Everything must match.
+        </p>
+      </div>
+      ${
+        q
+          ? items.length === 0
+            ? html`<div class="empty">No data dirs match.</div>`
+            : html`<div class="feed">
+                ${items.map((d) =>
+                feedItem(d, maintainers.get(d.did), instances.get(`${d.did} ${d.instanceUrl}`)),
+              )}
+              </div>`
+          : ""
+      }`,
   );
 }
 
