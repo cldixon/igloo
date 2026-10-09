@@ -43,3 +43,8 @@ export function buildBreadcrumbs(path: string, rootName: string = "igloo"): Brea
   }
   return crumbs;
 }
+
+/** A sha256 shortened for display: 9f2c…e41a. */
+export function shortHash(sha256: string): string {
+  return `${sha256.slice(0, 4)}…${sha256.slice(-4)}`;
+}

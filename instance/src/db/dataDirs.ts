@@ -1,4 +1,5 @@
 import { isSlug, relativePath, sha256Hex } from "@igloo/lexicon";
+import type { DataDir, DataDirFile, DataDirStatus } from "../shared/types.js";
 
 /**
  * Instance state for data dirs.
@@ -9,30 +10,7 @@ import { isSlug, relativePath, sha256Hex } from "@igloo/lexicon";
  * deletes the record and makes the data dir a draft again.
  */
 
-export type DataDirStatus = "draft" | "published";
-
-export type DataDirFile = {
-  path: string;
-  size: number;
-  sha256: string;
-  contentType: string | null;
-  uploadedAt: string;
-};
-
-export type DataDir = {
-  slug: string;
-  title: string | null;
-  description: string | null;
-  license: string | null;
-  readmeSha256: string | null;
-  status: DataDirStatus;
-  recordUri: string | null;
-  recordCid: string | null;
-  publishedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  files: DataDirFile[];
-};
+export type { DataDir, DataDirFile, DataDirStatus };
 
 /** Where a data dir's README lives, relative to the data dir. */
 export const README_PATH = "README.md";

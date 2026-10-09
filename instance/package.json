@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@igloo/lexicon": "workspace:*",
+    "@igloo/platform": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "fetch-to-node": "^2.1.0",
     "hono": "^4.7.0",

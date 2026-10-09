@@ -1,13 +1,15 @@
+import {
+  OAUTH_MIGRATION,
+  WEB_SESSION_MIGRATION,
+  migratedDb,
+  type Migration,
+} from "@igloo/platform";
+
 /**
- * D1 schema for instance state, applied in order on first use (see migrate.ts).
- *
- * Rules, because Worker versions can roll back but D1 can't:
- * - Never edit or reorder a migration once it has shipped; add a new one.
- * - Migrations only add. Removing a column or table ships in a later release,
- *   after no deployed version reads it.
- * - One SQL statement per array entry (D1 prepares statements one at a time).
+ * D1 schema for instance state, applied in order on first use. See
+ * @igloo/platform's migrate.ts for the rules: never edit a shipped migration,
+ * and only add.
  */
-export type Migration = { name: string; statements: string[] };
 
 export const MIGRATIONS: Migration[] = [
   {
@@ -46,3 +48,9 @@ export const MIGRATIONS: Migration[] = [
     ],
   },
 ];
+
+/** All migrations, in order. */
+export const ALL_MIGRATIONS: Migration[] = [OAUTH_MIGRATION, WEB_SESSION_MIGRATION, ...MIGRATIONS];
+
+/** The instance database, migrated on first use in each isolate. */
+export const getDb = migratedDb(ALL_MIGRATIONS);

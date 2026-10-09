@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => ({
     // runWorkerFirst explicitly claims the API paths so they reach Hono instead.
     assets: {
       notFoundHandling: "single-page-application",
-      runWorkerFirst: ["/api/*", "/health", "/mcp", "/mcp/*"],
+      runWorkerFirst: ["/api/*", "/health", "/mcp", "/mcp/*", "/oauth/*"],
     },
 
     env: {
@@ -45,6 +45,7 @@ export default defineConfig(({ mode }) => ({
       IGLOO_TITLE: bindings.text("igloo"),
       IGLOO_TAGLINE: bindings.text("personal data repository"),
       IGLOO_THEME: bindings.text("repo"),
+      IGLOO_APPVIEW_URL: bindings.text("https://igloo.cldixon.dev"),
     },
   },
 }));

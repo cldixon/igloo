@@ -21,6 +21,7 @@ export default defineConfig({
       "/api": WORKER_ORIGIN,
       "/health": WORKER_ORIGIN,
       "/mcp": WORKER_ORIGIN,
+      "/oauth": WORKER_ORIGIN,
     },
   },
 });

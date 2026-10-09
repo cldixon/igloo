@@ -5,4 +5,8 @@ export type {
   VisualTheme,
   ColorMode,
   IglooConfig,
+  PublishedDataDir,
+  DataDir,
+  DataDirFile,
+  DataDirStatus,
 } from "./types.js";

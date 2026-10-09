@@ -5,6 +5,8 @@ import { downloadRoute } from "./routes/download.js";
 import { metadataRoute } from "./routes/metadata.js";
 import { configRoute } from "./routes/config.js";
 import { mcpRoute } from "./mcp.js";
+import { authRoute, oauthRoute } from "./routes/auth.js";
+import { adminRoute } from "./routes/admin.js";
 import type { Bindings } from "./bindings.js";
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -21,8 +23,11 @@ app.route("/api", downloadRoute);
 app.route("/api", metadataRoute);
 app.route("/api", configRoute);
 app.route("/mcp", mcpRoute);
+app.route("/oauth", oauthRoute);
+app.route("/api/auth", authRoute);
+app.route("/api/admin", adminRoute);
 
-const API_PREFIXES = ["/api", "/health", "/mcp"];
+const API_PREFIXES = ["/api", "/health", "/mcp", "/oauth"];
 
 // Requests reach the Worker either because run_worker_first claimed them or
 // because they missed a static asset. Unmatched API paths are a real 404;

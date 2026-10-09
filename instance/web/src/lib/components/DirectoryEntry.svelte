@@ -1,10 +1,14 @@
 <script lang="ts">
   import type { DirectoryEntry } from "@igloo/shared";
   import FileIcon from "./FileIcon.svelte";
-  import { formatBytes, formatDate, formatDateFull } from "$lib/utils";
+  import { formatBytes, formatDate, formatDateFull, shortHash } from "$lib/utils";
   import { getDownloadUrl } from "$lib/api";
 
-  let { entry }: { entry: DirectoryEntry } = $props();
+  let {
+    entry,
+    sha256,
+    published,
+  }: { entry: DirectoryEntry; sha256?: string; published?: boolean } = $props();
 </script>
 
 <div class="entry">
@@ -12,8 +16,10 @@
     <FileIcon type={entry.type} extension={entry.extension} />
     {#if entry.type === "directory"}
       <a href="/{entry.path.replace(/\/$/, '')}" class="name-link directory">{entry.name}</a>
+      {#if published}<span class="badge" title="A published data dir">published</span>{/if}
     {:else}
       <span class="name-text">{entry.name}</span>
+      {#if sha256}<code class="hash" title="sha256 {sha256}">sha256 {shortHash(sha256)}</code>{/if}
     {/if}
   </div>
 
@@ -53,6 +59,22 @@
 </div>
 
 <style>
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 0 0.4rem;
+  }
+  .hash {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
   .entry {
     display: flex;
     align-items: center;

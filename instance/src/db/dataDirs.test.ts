@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { createTestD1 } from "../test/d1.js";
-import { migrate } from "./migrate.js";
+import { createTestD1 } from "@igloo/platform/testing";
+import { migrate } from "@igloo/platform";
+import { ALL_MIGRATIONS } from "./migrations.js";
 import {
   DataDirError,
   createDataDir,
@@ -29,7 +30,7 @@ let dispose: () => Promise<void>;
 
 beforeEach(async () => {
   ({ db, dispose } = await createTestD1());
-  await migrate(db);
+  await migrate(db, ALL_MIGRATIONS);
 });
 afterEach(() => dispose());
 

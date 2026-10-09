@@ -3,12 +3,17 @@
   import Breadcrumbs from "$lib/components/Breadcrumbs.svelte";
   import DirectoryEntry from "$lib/components/DirectoryEntry.svelte";
   import ReadmeViewer from "$lib/components/ReadmeViewer.svelte";
+  import PublishedBanner from "$lib/components/PublishedBanner.svelte";
 
   let { listing, currentPath }: { listing: DirectoryListing; currentPath: string } = $props();
 </script>
 
 <div class="browser">
   <Breadcrumbs path={currentPath} />
+
+  {#if listing.dataDir}
+    <PublishedBanner dataDir={listing.dataDir} />
+  {/if}
 
   <div class="listing">
     <div class="listing-header">
@@ -24,7 +29,11 @@
       </div>
     {:else}
       {#each listing.entries as entry (entry.path)}
-        <DirectoryEntry {entry} />
+        <DirectoryEntry
+          {entry}
+          sha256={listing.dataDir?.hashes[entry.name]}
+          published={listing.publishedDirs?.includes(entry.name)}
+        />
       {/each}
     {/if}
   </div>

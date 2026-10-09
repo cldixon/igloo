@@ -1,18 +1,20 @@
-import { MIGRATIONS, type Migration } from "./migrations.js";
+/**
+ * A schema change. Never edit or reorder one that has shipped; add a new one.
+ * Migrations only add: Worker versions can roll back, D1 can't. One SQL
+ * statement per array entry (D1 prepares statements one at a time).
+ */
+export type Migration = { name: string; statements: string[] };
 
 /**
  * Bring the database up to date with MIGRATIONS.
  *
  * Owners never run a migration command: the first request that needs the
- * database in each isolate applies whatever is pending. Each migration runs as
+ * database in each isolate applies whatever is pending (see migratedDb). Each migration runs as
  * one D1 batch (a transaction) that starts by recording its own name, so if two
  * isolates race, the loser's batch fails on the primary key and rolls back
  * without touching the schema.
  */
-export async function migrate(
-  db: D1Database,
-  migrations: Migration[] = MIGRATIONS,
-): Promise<string[]> {
+export async function migrate(db: D1Database, migrations: Migration[]): Promise<string[]> {
   await db
     .prepare(
       "CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL)",
@@ -45,17 +47,23 @@ export async function migrate(
   return newlyApplied;
 }
 
-let ready: Promise<unknown> | null = null;
-
 /**
- * The instance database, migrated. Memoized per isolate; a failed attempt is
- * forgotten so the next request retries instead of failing forever.
+ * Returns a getter for the migrated database. Memoized per isolate; a failed
+ * attempt is forgotten so the next request retries instead of failing forever.
  */
-export async function getDb(db: D1Database): Promise<D1Database> {
-  ready ??= migrate(db).catch((error) => {
-    ready = null;
-    throw error;
-  });
-  await ready;
-  return db;
+export function migratedDb(migrations: Migration[]): (db: D1Database) => Promise<D1Database> {
+  // Keyed by binding: one per isolate in production, one per test database in tests.
+  const ready = new WeakMap<D1Database, Promise<unknown>>();
+  return async (db) => {
+    let done = ready.get(db);
+    if (!done) {
+      done = migrate(db, migrations).catch((error) => {
+        ready.delete(db);
+        throw error;
+      });
+      ready.set(db, done);
+    }
+    await done;
+    return db;
+  };
 }

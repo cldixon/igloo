@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DirectoryListing } from "@igloo/shared";
   import ReadmeViewer from "$lib/components/ReadmeViewer.svelte";
-  import { formatBytes, formatDateFull } from "$lib/utils";
+  import { formatBytes, formatDateFull, shortHash } from "$lib/utils";
   import { getDownloadUrl } from "$lib/api";
   import { config } from "$lib/theme";
 
@@ -29,11 +29,12 @@
         <th class="col-name">Name</th>
         <th class="col-date">Last modified</th>
         <th class="col-size">Size</th>
+        <th class="col-desc">Description</th>
       </tr>
     </thead>
     <tbody>
       <tr class="header-rule">
-        <td colspan="4"><hr /></td>
+        <td colspan="5"><hr /></td>
       </tr>
 
       {#if parentPath()}
@@ -42,12 +43,13 @@
           <td class="col-name"><a href={parentPath()}>Parent Directory</a></td>
           <td class="col-date">-</td>
           <td class="col-size">-</td>
+          <td class="col-desc"></td>
         </tr>
       {/if}
 
       {#if listing.entries.length === 0 && !parentPath()}
         <tr>
-          <td colspan="4" class="empty">This directory is empty.</td>
+          <td colspan="5" class="empty">This directory is empty.</td>
         </tr>
       {:else}
         {#each listing.entries as entry (entry.path)}
@@ -65,12 +67,31 @@
             <td class="col-size"
               >{entry.type === "file" && entry.size != null ? formatBytes(entry.size) : "-"}</td
             >
+            <td class="col-desc">
+              {#if listing.dataDir?.hashes[entry.name]}
+                <span title="sha256 {listing.dataDir.hashes[entry.name]}"
+                  >sha256 {shortHash(listing.dataDir.hashes[entry.name]!)}</span
+                >
+              {:else if listing.publishedDirs?.includes(entry.name)}
+                published data dir
+              {/if}
+            </td>
           </tr>
         {/each}
       {/if}
 
+      {#if listing.dataDir}
+        <tr class="record">
+          <td></td>
+          <td colspan="4">
+            [<a href={listing.dataDir.feedUrl}>{listing.dataDir.recordUri}</a>]<br />
+            [published{listing.dataDir.license ? ` · ${listing.dataDir.license}` : ""} · on the feed]
+          </td>
+        </tr>
+      {/if}
+
       <tr class="footer-rule">
-        <td colspan="4"><hr /></td>
+        <td colspan="5"><hr /></td>
       </tr>
     </tbody>
   </table>
@@ -83,6 +104,17 @@
 </div>
 
 <style>
+  .col-desc {
+    padding: 0.3rem 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+  .record td {
+    padding: 0.3rem 0.75rem;
+    color: var(--accent);
+    overflow-wrap: anywhere;
+  }
+
   .apache-listing {
     font-family: var(--font-mono);
     font-size: 1rem;
