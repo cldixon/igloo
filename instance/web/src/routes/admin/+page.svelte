@@ -4,6 +4,7 @@
   import {
     admin,
     auth,
+    type ApiToken,
     type AuthStatus,
     type InstanceProfile,
     type NetworkStatus,
@@ -34,6 +35,10 @@
   let newSlug = $state("");
   let newTitle = $state("");
   let busy = $state(false);
+  let tokens = $state<ApiToken[]>([]);
+  let tokenName = $state("");
+  let tokenDays = $state(90);
+  let newToken = $state<string | null>(null);
 
   onMount(async () => {
     const reason = new URL(location.href).searchParams.get("error");
@@ -43,12 +48,14 @@
   });
 
   async function loadDashboard() {
-    const [list, found, net, inst] = await Promise.all([
+    const [list, found, net, inst, tok] = await Promise.all([
       admin.list(),
       admin.folders(),
       admin.network(),
       admin.instance(),
+      admin.tokens(),
     ]);
+    tokens = tok.tokens;
     dataDirs = list.dataDirs;
     folders = found.folders;
     network = net;
@@ -93,6 +100,21 @@
       await admin.create(slug, { title });
       location.href = `/admin/d/${slug}`;
     });
+
+  const createToken = () =>
+    run(async () => {
+      newToken = (await admin.createToken(tokenName.trim(), tokenDays)).token;
+      tokenName = "";
+      tokens = (await admin.tokens()).tokens;
+    });
+
+  const revokeToken = (t: ApiToken) => {
+    if (!confirm(`Revoke "${t.name}"? Anything using it stops working.`)) return;
+    return run(async () => {
+      await admin.revokeToken(t.id);
+      tokens = (await admin.tokens()).tokens;
+    });
+  };
 
   const saveInstance = () =>
     run(async () => {
@@ -230,6 +252,67 @@
         >
         {#if instance?.recordUri}<code class="muted">{instance.recordUri}</code>{/if}
       </div>
+    </section>
+
+    <section class="panel">
+      <h2>API tokens</h2>
+      <p class="muted">
+        For scripts and agents: send <code>Authorization: Bearer &lt;token&gt;</code> to the admin
+        API, or to <code>/mcp</code> for its write tools. Tokens can do anything you can here except manage
+        tokens.
+      </p>
+      {#if newToken}
+        <div class="panel" style="background: var(--bg-secondary)">
+          <strong>Copy this token now. It won't be shown again.</strong>
+          <code style="user-select: all">{newToken}</code>
+          <div class="row"><button onclick={() => (newToken = null)}>Done</button></div>
+        </div>
+      {/if}
+      {#if tokens.length > 0}
+        <div class="table-wrap">
+          <table>
+            <thead
+              ><tr><th>Name</th><th>Token</th><th>Expires</th><th>Last used</th><th></th></tr
+              ></thead
+            >
+            <tbody>
+              {#each tokens as t (t.id)}
+                <tr>
+                  <td>{t.name}</td>
+                  <td class="mono">{t.prefix}…</td>
+                  <td>{t.expiresAt.slice(0, 10)}</td>
+                  <td>{t.lastUsedAt ? t.lastUsedAt.slice(0, 10) : "never"}</td>
+                  <td style="text-align: right"
+                    ><button class="danger" onclick={() => revokeToken(t)} disabled={busy}
+                      >Revoke</button
+                    ></td
+                  >
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+      <form
+        class="row"
+        onsubmit={(e) => {
+          e.preventDefault();
+          createToken();
+        }}
+      >
+        <input
+          bind:value={tokenName}
+          placeholder="Name, e.g. laptop script"
+          style="flex: 1 1 14rem"
+          required
+        />
+        <select bind:value={tokenDays} style="width: auto">
+          <option value={30}>30 days</option>
+          <option value={90}>90 days</option>
+          <option value={365}>1 year</option>
+        </select>
+        <button class="primary" disabled={busy}>Create token</button>
+      </form>
     </section>
 
     {#if network}

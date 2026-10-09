@@ -46,6 +46,15 @@ export type InstanceProfile = {
   createdAt: string | null;
 };
 
+export type ApiToken = {
+  id: string;
+  name: string;
+  prefix: string;
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt: string | null;
+};
+
 export type NetworkStatus = {
   owner: string;
   pds: { ok: boolean; error?: string };
@@ -104,6 +113,10 @@ export const admin = {
   saveInstance: (name: string, description: string) =>
     request<{ instance: InstanceProfile }>("PUT", "/api/admin/instance", { name, description }),
   network: () => request<NetworkStatus>("GET", "/api/admin/network"),
+  tokens: () => request<{ tokens: ApiToken[] }>("GET", "/api/admin/tokens"),
+  createToken: (name: string, days: number) =>
+    request<{ token: string; apiToken: ApiToken }>("POST", "/api/admin/tokens", { name, days }),
+  revokeToken: (id: string) => request("DELETE", `/api/admin/tokens/${encodeURIComponent(id)}`),
 };
 
 /** Files at or below this go up in one request; larger ones in parts. Matches the API. */

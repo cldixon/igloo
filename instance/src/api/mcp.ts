@@ -6,6 +6,11 @@ import { toReqRes, toFetchResponse } from "fetch-to-node";
 import { listObjects, getReadme, getObject, getObjectMetadata } from "./storage.js";
 import { loadConfig } from "./routes/config.js";
 import type { Bindings } from "./bindings.js";
+import { bearerToken, verifyApiToken } from "../auth/tokens.js";
+import { getDb } from "../db/migrations.js";
+import { getDataDir, listDataDirs } from "../db/dataDirs.js";
+import { adminRoute } from "./routes/admin.js";
+import { publicDataDir } from "./routes/datadirs.js";
 
 // ---------------------------------------------------------------------------
 // Text file detection
@@ -65,7 +70,18 @@ function formatBytes(bytes: number): string {
 // MCP server factory — fresh instance per request (stateless mode)
 // ---------------------------------------------------------------------------
 
-function createMcpServer(env: Bindings): McpServer {
+type McpContext = {
+  /** This instance's public origin. */
+  origin: string;
+  /** Set when the request carried a valid API token: enables the write tools. */
+  authorization?: string;
+};
+
+const json = (value: unknown) => ({
+  content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }],
+});
+
+function createMcpServer(env: Bindings, ctx: McpContext): McpServer {
   const server = new McpServer({
     name: "igloo",
     version: "0.1.0",
@@ -235,6 +251,152 @@ function createMcpServer(env: Bindings): McpServer {
     },
   );
 
+  // --- Data dirs (read) -----------------------------------------------------
+
+  server.registerTool(
+    "igloo_list_datadirs",
+    {
+      title: "List Published Data Dirs",
+      description:
+        "List this instance's published data dirs: name, title, description, license, tags, " +
+        "and each file's path, size, sha256, format, row count and schema.",
+      inputSchema: {},
+    },
+    async () => {
+      const db = await getDb(env.DB);
+      const dirs = (await listDataDirs(db)).filter((d) => d.status === "published");
+      return json(dirs.map((d) => publicDataDir(d, ctx.origin, env.IGLOO_APPVIEW_URL)));
+    },
+  );
+
+  server.registerTool(
+    "igloo_get_datadir",
+    {
+      title: "Get a Data Dir",
+      description:
+        "Get one published data dir with its files' download URLs, sha256 hashes, formats, " +
+        "row counts and column schemas, plus its AT Protocol record URI. Download URLs support " +
+        "HTTP range requests, so Parquet can be read selectively (e.g. by DuckDB).",
+      inputSchema: { name: z.string().describe("The data dir's name, e.g. wikipedia-pageviews") },
+    },
+    async ({ name }) => {
+      const dir = await getDataDir(await getDb(env.DB), name);
+      if (!dir || dir.status !== "published") {
+        return { ...json({ error: `No published data dir "${name}"` }), isError: true };
+      }
+      return json(publicDataDir(dir, ctx.origin, env.IGLOO_APPVIEW_URL));
+    },
+  );
+
+  // --- Data dirs (write, with an API token) ----------------------------------
+
+  if (ctx.authorization) {
+    /** The admin API, called as the token's holder. */
+    const admin = async (method: string, path: string, body?: unknown) => {
+      const res = await adminRoute.request(
+        new URL(path, ctx.origin),
+        {
+          method,
+          headers: {
+            authorization: ctx.authorization!,
+            ...(typeof body === "string"
+              ? { "content-type": "text/markdown" }
+              : body !== undefined && { "content-type": "application/json" }),
+          },
+          body:
+            typeof body === "string" ? body : body === undefined ? undefined : JSON.stringify(body),
+        },
+        env,
+      );
+      const data = await res.json();
+      return res.ok ? json(data) : { ...json(data), isError: true };
+    };
+    const dir = (name: string) => `/datadirs/${encodeURIComponent(name)}`;
+
+    server.registerTool(
+      "igloo_create_datadir",
+      {
+        title: "Create a Data Dir",
+        description:
+          "Create a draft data dir. Its name is its folder in the bucket. Add files with " +
+          "igloo_add_files (files already in the folder) or the REST upload API, then publish.",
+        inputSchema: {
+          name: z.string(),
+          title: z.string().optional(),
+          description: z.string().optional(),
+          license: z.string().optional().describe("SPDX identifier, e.g. CC-BY-4.0"),
+        },
+      },
+      ({ name, ...fields }) => admin("POST", "/datadirs", { slug: name, ...fields }),
+    );
+
+    server.registerTool(
+      "igloo_add_files",
+      {
+        title: "Add Files Already in the Bucket",
+        description:
+          "Add files that are already in the bucket under <name>/ to a draft data dir. Each is " +
+          "hashed (and Parquet profiled) on the server.",
+        inputSchema: {
+          name: z.string(),
+          paths: z.array(z.string()).describe("Paths within the data dir"),
+        },
+      },
+      ({ name, paths }) => admin("POST", `${dir(name)}/files/register`, { paths }),
+    );
+
+    server.registerTool(
+      "igloo_update_datadir",
+      {
+        title: "Update a Data Dir",
+        description:
+          "Change a data dir's title, description, tags or license. Title, description and tags " +
+          "can change while published (the record is updated); the license can't.",
+        inputSchema: {
+          name: z.string(),
+          title: z.string().optional(),
+          description: z.string().optional(),
+          tags: z.array(z.string()).optional(),
+          license: z.string().optional(),
+        },
+      },
+      ({ name, ...fields }) => admin("PATCH", dir(name), fields),
+    );
+
+    server.registerTool(
+      "igloo_set_readme",
+      {
+        title: "Set a Data Dir's README",
+        description: "Write the data dir's README.md (markdown). Allowed while published.",
+        inputSchema: { name: z.string(), markdown: z.string() },
+      },
+      ({ name, markdown }) => admin("PUT", `${dir(name)}/readme`, markdown),
+    );
+
+    server.registerTool(
+      "igloo_publish_datadir",
+      {
+        title: "Publish a Data Dir",
+        description:
+          "Publish a data dir: write its record to the owner's AT Protocol repo and announce it " +
+          "to the AppView. Its files and license are then fixed until it is unpublished.",
+        inputSchema: { name: z.string() },
+      },
+      ({ name }) => admin("POST", `${dir(name)}/publish`),
+    );
+
+    server.registerTool(
+      "igloo_unpublish_datadir",
+      {
+        title: "Unpublish a Data Dir",
+        description:
+          "Delete the data dir's record. It leaves the feed and becomes an editable draft.",
+        inputSchema: { name: z.string() },
+      },
+      ({ name }) => admin("POST", `${dir(name)}/unpublish`),
+    );
+  }
+
   return server;
 }
 
@@ -245,8 +407,17 @@ function createMcpServer(env: Bindings): McpServer {
 export const mcpRoute = new Hono<{ Bindings: Bindings }>();
 
 mcpRoute.post("/", async (c) => {
+  // Reading is open. An API token (Authorization: Bearer igloo_…) adds the write tools.
+  const authorization = c.req.header("authorization");
+  const token = bearerToken(authorization);
+  if (token && !(await verifyApiToken(await getDb(c.env.DB), token))) {
+    return c.json({ error: "Invalid or expired API token" }, 401);
+  }
   const { req, res } = toReqRes(c.req.raw);
-  const server = createMcpServer(c.env);
+  const server = createMcpServer(c.env, {
+    origin: new URL(c.req.url).origin,
+    authorization: token ? authorization : undefined,
+  });
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
   });

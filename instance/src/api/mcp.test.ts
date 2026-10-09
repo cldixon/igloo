@@ -125,15 +125,17 @@ describe("HTTP methods", () => {
     expect(res.status).toBe(405);
   });
 
-  test("POST /mcp with tools/list returns all 5 tools", async () => {
+  test("POST /mcp with tools/list returns the 7 read tools to anonymous clients", async () => {
     const { status, body } = await mcpRequest("tools/list", {});
     expect(status).toBe(200);
 
     const toolNames = body.result.tools.map((t: any) => t.name).sort();
     expect(toolNames).toEqual([
       "igloo_config",
+      "igloo_get_datadir",
       "igloo_health",
       "igloo_list",
+      "igloo_list_datadirs",
       "igloo_metadata",
       "igloo_read_file",
     ]);

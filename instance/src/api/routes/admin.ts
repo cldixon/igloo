@@ -30,6 +30,7 @@ import {
   putInstanceRecord,
 } from "../../admin/pds.js";
 import { originOf, requireOwner, type AdminEnv } from "../session.js";
+import { TokenError, createApiToken, listApiTokens, revokeApiToken } from "../../auth/tokens.js";
 
 /**
  * The owner's admin API. Everything here requires the owner's session
@@ -414,6 +415,35 @@ adminRoute.put("/instance", async (c) => {
   ]);
   await background(c, notifyAppView(c.env.IGLOO_APPVIEW_URL, ref.uri));
   return c.json({ instance: await instanceProfile(c) });
+});
+
+// --- API tokens (browser session only) ----------------------------------------
+
+const browserOnly = (c: Ctx) =>
+  c.var.viaToken ? c.json({ error: "Manage tokens from the admin panel" }, 403) : null;
+
+adminRoute.get("/tokens", async (c) => {
+  return browserOnly(c) ?? c.json({ tokens: await listApiTokens(c.var.db) });
+});
+
+/** Create a token. The secret is in this response only. */
+adminRoute.post("/tokens", async (c) => {
+  const refused = browserOnly(c);
+  if (refused) return refused;
+  const { name, days } = await c.req.json<{ name?: string; days?: number }>();
+  try {
+    return c.json(await createApiToken(c.var.db, name ?? "", Number(days ?? 90)), 201);
+  } catch (error) {
+    if (error instanceof TokenError) return c.json({ error: error.message }, 400);
+    throw error;
+  }
+});
+
+adminRoute.delete("/tokens/:id", async (c) => {
+  const refused = browserOnly(c);
+  if (refused) return refused;
+  const removed = await revokeApiToken(c.var.db, c.req.param("id"));
+  return removed ? c.json({ ok: true }) : c.json({ error: "No such token" }, 404);
 });
 
 // --- Network status ---------------------------------------------------------

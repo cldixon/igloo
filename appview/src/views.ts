@@ -522,8 +522,8 @@ export function searchPage(
             ? html`<div class="empty">No data dirs match.</div>`
             : html`<div class="feed">
                 ${items.map((d) =>
-                feedItem(d, maintainers.get(d.did), instances.get(`${d.did} ${d.instanceUrl}`)),
-              )}
+                  feedItem(d, maintainers.get(d.did), instances.get(`${d.did} ${d.instanceUrl}`)),
+                )}
               </div>`
           : ""
       }`,

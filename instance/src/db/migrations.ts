@@ -57,6 +57,21 @@ export const MIGRATIONS: Migration[] = [
       `ALTER TABLE data_dirs ADD COLUMN tags TEXT`,
     ],
   },
+  {
+    // Phase 2: API tokens for scripts and agents. Stored only as hashes.
+    name: "0003_api_tokens",
+    statements: [
+      `CREATE TABLE api_tokens (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        token_hash TEXT NOT NULL UNIQUE,
+        prefix TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        last_used_at TEXT
+      )`,
+    ],
+  },
 ];
 
 /** All migrations, in order. */

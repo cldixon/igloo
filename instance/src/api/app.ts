@@ -7,6 +7,7 @@ import { configRoute } from "./routes/config.js";
 import { mcpRoute } from "./mcp.js";
 import { authRoute, oauthRoute } from "./routes/auth.js";
 import { adminRoute } from "./routes/admin.js";
+import { dataDirsRoute } from "./routes/datadirs.js";
 import type { Bindings } from "./bindings.js";
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -34,6 +35,7 @@ app.route("/mcp", mcpRoute);
 app.route("/oauth", oauthRoute);
 app.route("/api/auth", authRoute);
 app.route("/api/admin", adminRoute);
+app.route("/api", dataDirsRoute);
 
 const API_PREFIXES = ["/api", "/health", "/mcp", "/oauth"];
 
