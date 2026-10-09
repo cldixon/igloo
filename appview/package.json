@@ -1,0 +1,24 @@
+{
+  "name": "@igloo/appview",
+  "version": "0.1.0",
+  "description": "igloo AppView: indexes igloo records from the network and serves the feed",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "cf dev",
+    "deploy": "cf deploy",
+    "deploy:dry": "cf deploy --dry-run",
+    "types": "cf workers types",
+    "typecheck": "cf workers types && tsc --noEmit"
+  },
+  "dependencies": {
+    "@igloo/lexicon": "workspace:*",
+    "hono": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "cf": "1.0.0-beta.14",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.149.0"
+  }
+}

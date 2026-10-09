@@ -10,6 +10,7 @@ dist/
 # Go CLI
 cli/igloo
 
-# Cloudflare
-web/build/
+# Cloudflare: cf build output and generated types, web UI build
+.cloudflare/
 .wrangler/
+instance/web/build/

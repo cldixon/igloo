@@ -80,11 +80,20 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   the direction for this project. Discover commands with
   `cf cli search "<what you want to do>"` (keep queries generic: no names,
   domains, IDs or tokens), then `<command> --help`. Don't explore by chaining
-  `--help` calls. `cf migrate` converts a Wrangler project. Some existing
-  scripts and config still use wrangler; replace them as you touch them.
-- **Bun** for installs, scripts and tests (`bun install`, `bun test`).
+  `--help` calls.
+- Each Worker is configured in its own `cloudflare.config.ts` (`cf/config`).
+  The instance also has a small `wrangler.config.ts` for the assets
+  directory, because cf still bundles through Wrangler. `cf workers types`
+  generates `.cloudflare/types/index.d.ts` (Env plus runtime types); each
+  package's `typecheck` script runs it first. Don't add
+  `@cloudflare/workers-types`.
+- `cf dev` evaluates the config with `--mode`. The instance binds the real R2
+  bucket in dev unless the mode is `local` (`bun run dev --local`).
+- **Bun** workspace with the isolated linker (`bunfig.toml`), so each package
+  has its own `node_modules`; cf needs `wrangler` next to the package that
+  declares it. `bun run check` at the root runs everything CI runs.
 - **Prettier** for formatting (`bun run format`). CI runs `format:check`.
-- SvelteKit (Svelte 5) for the web UI under `web/`; Go for the CLI under
+- SvelteKit (Svelte 5) for the web UI under `instance/web/`; Go for the CLI under
   `cli/`.
 
 ## Workflow
@@ -95,11 +104,16 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   before pushing.
 - Commit history doesn't need to be tidy.
 
-## Repo layout (iteration 2, being extended)
+## Repo layout
 
-- `src/worker.ts`: Worker entry. `src/api/`: Hono app, routes, R2 storage,
-  MCP.
-- `src/shared/`: types shared between the Worker and the UI.
-- `web/`: SvelteKit SPA, built to `web/build` and served as static assets.
+- `instance/`: the instance Worker (`@igloo/instance`), from iteration 2.
+  - `src/worker.ts` entry; `src/api/` Hono app, routes, R2 storage, MCP;
+    `src/shared/` types shared with the UI.
+  - `web/`: SvelteKit SPA (`@igloo/instance-web`), built to `web/build` and
+    served as static assets.
+  - `scripts/`: `setup.ts` (writes `cloudflare.config.ts`) and `dev.ts`.
+- `appview/`: the AppView Worker (`@igloo/appview`), at
+  `igloo.cldixon.dev`.
+- `packages/lexicon/`: `@igloo/lexicon`, NSIDs and record types shared by
+  both Workers.
 - `cli/`: Go CLI. `skills/igloo/`: agent skill.
-- `scripts/`: `setup.ts` and `dev.ts`.

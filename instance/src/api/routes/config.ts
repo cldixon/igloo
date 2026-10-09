@@ -12,7 +12,7 @@ const DEFAULTS: IglooConfig = {
   theme: "repo",
 };
 
-/** Instance config comes from wrangler vars — there is no filesystem on Workers. */
+/** Instance config comes from text bindings in cloudflare.config.ts — there is no filesystem on Workers. */
 export function loadConfig(env: Bindings): IglooConfig {
   return {
     title: env.IGLOO_TITLE || DEFAULTS.title,

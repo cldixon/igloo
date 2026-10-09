@@ -1,22 +1,22 @@
 #!/usr/bin/env bun
 /**
  * Runs the two halves of local development:
- *   - `wrangler dev` on :8787 — the Worker, holding the real R2 binding
- *   - `vite dev` on :5173     — the SPA with HMR, proxying /api to the Worker
+ *   - `cf dev` on :8787   — the Worker, holding the real R2 binding
+ *   - `vite dev` on :5173 — the SPA with HMR, proxying /api to the Worker
  *
- * Defaults to --remote so you browse the actual bucket. Pass --local to use
- * wrangler's simulated R2 (empty unless you seed it).
+ * Defaults to the real bucket. Pass --local to evaluate cloudflare.config.ts in
+ * mode "local", which uses a simulated R2 (empty unless you seed it).
  */
 import { spawn } from "child_process";
 
 const local = process.argv.includes("--local");
 
-const wranglerArgs = ["wrangler", "dev", "--port", "8787"];
-if (!local) wranglerArgs.push("--remote");
+const cfArgs = ["cf", "dev", "--port", "8787"];
+if (local) cfArgs.push("--mode", "local");
 
 console.log(`igloo dev — Worker on :8787 (${local ? "local" : "remote"} R2), UI on :5173`);
 
-const worker = spawn("bunx", wranglerArgs, { stdio: "inherit" });
+const worker = spawn("bunx", cfArgs, { stdio: "inherit" });
 const web = spawn("bun", ["--bun", "vite", "dev"], {
   stdio: "inherit",
   cwd: "web",

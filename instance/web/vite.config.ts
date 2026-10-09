@@ -7,7 +7,7 @@ import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// In dev the SPA runs on Vite (for HMR) and the API runs in `wrangler dev`,
+// In dev the SPA runs on Vite (for HMR) and the API runs in `cf dev`,
 // which holds the real R2 binding. In production both are one Worker.
 const WORKER_ORIGIN = process.env.IGLOO_WORKER_ORIGIN ?? "http://localhost:8787";
 

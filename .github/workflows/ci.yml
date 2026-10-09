@@ -6,11 +6,11 @@ on:
   pull_request:
     branches: [main]
 
-# Quality gate only. Building and deploying the Worker is Workers Builds'
+# Quality gate only. Building and deploying the Workers is Workers Builds'
 # job — see "Continuous Deployment" in the README.
 jobs:
-  worker:
-    name: Worker
+  workers:
+    name: Workers
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,22 +24,24 @@ jobs:
       - name: Format check
         run: bun run format:check
 
+      # Each package's typecheck runs `cf workers types` first, generating the
+      # Env and runtime types from its cloudflare.config.ts.
       - name: Type check
-        run: bunx tsc --noEmit
+        run: bun run typecheck
 
       - name: Svelte check
-        run: bun run check
+        run: bun run --cwd instance check
 
       - name: Test
         run: bun test
 
-      - name: Build
-        run: bun run build
+      - name: Build instance UI
+        run: bun run --cwd instance build
 
-      # Runs last: the config points at web/build, so the assets have to exist
-      # before wrangler will resolve it.
+      # Runs last: the instance config points at web/build, so the assets have
+      # to exist before cf will resolve it.
       - name: Validate Workers config
-        run: bunx wrangler deploy --dry-run
+        run: bun run --filter '*' deploy:dry
 
   cli:
     name: CLI

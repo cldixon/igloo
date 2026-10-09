@@ -11,7 +11,7 @@ Deploy an igloo and you get:
 - A **CLI** for terminal-native access to your data repo
 - An **MCP server** and **agent skill** so LLM-based tools can browse and retrieve your datasets
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cldixon/igloo)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cldixon/igloo/tree/main/instance)
 
 The button clones this repo into your own GitHub account, provisions the R2 bucket, and wires up CI/CD — see [Continuous Deployment](#continuous-deployment). To set things up by hand instead, follow the Quick Start below.
 
@@ -54,16 +54,19 @@ storage credentials to manage.
 git clone https://github.com/cldixon/igloo.git
 cd igloo
 bun install
+cd instance
 ```
+
+The repo is a Bun workspace. The instance Worker and its UI live in `instance/`; the commands below run from there.
 
 ### 2. Authenticate and provision
 
 ```bash
-bunx wrangler login
+bunx cf auth login
 bun run setup
 ```
 
-`bun run setup` prompts for your Worker name, bucket name, and site title, creates the R2 bucket if it does not already exist, and writes your answers into `wrangler.jsonc`.
+`bun run setup` prompts for your Worker name, bucket name, and site title, creates the R2 bucket if it does not already exist, and writes your answers into `cloudflare.config.ts`.
 
 ### 3. Run locally
 
@@ -71,9 +74,9 @@ bun run setup
 bun run dev
 ```
 
-This starts `wrangler dev` on port 8787 (the Worker, bound to your real R2 bucket) and Vite on port 5173 (the UI, with HMR). Open http://localhost:5173.
+This starts `cf dev` on port 8787 (the Worker, bound to your real R2 bucket) and Vite on port 5173 (the UI, with HMR). Open http://localhost:5173.
 
-Pass `--local` to use wrangler's simulated R2 instead of the live bucket:
+Pass `--local` to use a simulated R2 instead of the live bucket:
 
 ```bash
 bun run dev --local
@@ -87,13 +90,13 @@ bun run deploy
 
 This builds the web UI and deploys the Worker together as one unit.
 
-`bun run setup` writes your custom domain into `wrangler.jsonc` as a route. The zone must be on your own Cloudflare account, or the deploy will fail:
+`bun run setup` writes your custom domain into `cloudflare.config.ts`. The zone must be on your own Cloudflare account, or the deploy will fail:
 
-```jsonc
-"routes": [{ "pattern": "data.example.com", "custom_domain": true }]
+```ts
+domains: ["data.example.com"],
 ```
 
-Answer the domain prompt with a blank line to drop the route and serve from `*.workers.dev` instead. `setup` keeps the two in step: giving a domain sets `workers_dev` to `false` so the custom domain is the only way in, and leaving it blank sets it to `true` so the Worker still has a route.
+Answer the domain prompt with a blank line to drop the domain and serve from `*.workers.dev` instead. `setup` keeps the two in step: giving a domain sets `workersDev` to `false` so the custom domain is the only way in, and leaving it blank sets it to `true` so the Worker still has a route.
 
 ## Continuous Deployment
 
@@ -101,32 +104,33 @@ Igloo deploys as a **single Worker** — the API and the web UI ship together as
 
 The two systems have separate jobs, and neither does the other's work:
 
-| System                                          | Responsibility                                                                                                                                                    |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **GitHub Actions** (`.github/workflows/ci.yml`) | Every quality check. Worker: type check, `svelte-check`, tests, build, and `wrangler deploy --dry-run` to validate the config. CLI: `gofmt`, `go vet`, `go test`. |
-| **Workers Builds**                              | Building and deploying only                                                                                                                                       |
+| System                                          | Responsibility                                                                                                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **GitHub Actions** (`.github/workflows/ci.yml`) | Every quality check. Workers: type check, `svelte-check`, tests, build, and `cf deploy --dry-run` to validate each config. CLI: `gofmt`, `go vet`, `go test`. |
+| **Workers Builds**                              | Building and deploying only                                                                                                                                   |
 
 Connect the repo once:
 
 1. In the Cloudflare dashboard, open your Worker → **Settings** → **Build**.
 2. Connect your GitHub repository.
-3. Set the build command to `bun install && bun run build`.
-4. Leave the deploy command as `npx wrangler deploy`.
-5. Under **Branch control**, enable **non-production branch builds** (off by default — this is what produces the PR previews).
+3. Set the root directory to `instance`.
+4. Set the build command to `bun install && bun run build`.
+5. Set the deploy command to `bunx cf deploy`, and the non-production branch deploy command to `bunx cf previews deploy`.
+6. Under **Branch control**, enable **non-production branch builds** (off by default — this is what produces the PR previews).
 
 You then get:
 
-| Event                    | Result                                                                 |
-| ------------------------ | ---------------------------------------------------------------------- |
-| Push to `main`           | `wrangler deploy` — production updated                                 |
-| Push to any other branch | `wrangler versions upload` — a new version, not promoted to production |
-| Open a pull request      | Preview URLs posted as a PR comment                                    |
+| Event                    | Result                                                       |
+| ------------------------ | ------------------------------------------------------------ |
+| Push to `main`           | `cf deploy` — production updated                             |
+| Push to any other branch | `cf previews deploy` — a preview, not promoted to production |
+| Open a pull request      | Preview URLs posted as a PR comment                          |
 
 Each PR comment carries two links: a stable branch alias (`<branch>-<worker>.<subdomain>.workers.dev`) that survives new commits, and a per-commit URL pinned to that exact version. You can also publish a preview by hand with `bun run deploy:preview`.
 
 ### Caveats
 
-- **Preview versions share production bindings.** Workers cannot vary bindings between production and preview builds, so every preview reads the same R2 bucket as production. That is harmless while igloo is read-only; it needs a separate preview bucket via [Wrangler Environments](https://developers.cloudflare.com/workers/wrangler/environments/) once a write path exists.
+- **Preview versions share production bindings by default.** Every preview reads the same R2 bucket as production. That is harmless while igloo is read-only. Once a write path exists, `cloudflare.config.ts` can check the `isPreview` flag cf passes to config factories and bind a separate preview bucket.
 - **Preview URLs require no Durable Objects.** Workers that implement a Durable Object do not get preview URLs generated. Igloo does not use them today.
 
 ## Adding Data
@@ -135,7 +139,7 @@ Igloo is currently read-only over HTTP — upload with any S3-compatible tool:
 
 ```bash
 # a single file
-bunx wrangler r2 object put my-bucket/datasets/iris.csv --file=iris.csv
+bunx cf r2 objects put datasets/iris.csv --bucket-name my-bucket --file iris.csv
 
 # a whole directory (recommended for large datasets)
 rclone copy ./my-dataset r2:my-bucket/my-dataset
@@ -145,15 +149,15 @@ A `README.md` at any prefix is rendered inline when browsing that directory.
 
 ## Configuration
 
-All instance configuration lives in `wrangler.jsonc`:
+All instance configuration lives in `instance/cloudflare.config.ts`:
 
-| Setting                     | Description                              |
-| --------------------------- | ---------------------------------------- |
-| `name`                      | Worker name                              |
-| `r2_buckets[0].bucket_name` | R2 bucket holding your data              |
-| `vars.IGLOO_TITLE`          | Site title                               |
-| `vars.IGLOO_TAGLINE`        | Site tagline                             |
-| `vars.IGLOO_THEME`          | Default visual theme (`repo` or `index`) |
+| Setting             | Description                              |
+| ------------------- | ---------------------------------------- |
+| `name`              | Worker name                              |
+| `env.DATA` name     | R2 bucket holding your data              |
+| `env.IGLOO_TITLE`   | Site title                               |
+| `env.IGLOO_TAGLINE` | Site tagline                             |
+| `env.IGLOO_THEME`   | Default visual theme (`repo` or `index`) |
 
 There are no secrets or `.env` files — the R2 binding authenticates through your Cloudflare account.
 
@@ -219,7 +223,7 @@ Users can override the theme and color mode in-browser via the settings menu —
 | Storage   | [Cloudflare R2](https://developers.cloudflare.com/r2/)                                     |
 | Web UI    | [SvelteKit](https://svelte.dev) + Svelte 5 (SPA, served via Workers Static Assets)         |
 | CLI       | [Go](https://go.dev) + [Cobra](https://github.com/spf13/cobra) + [Charm](https://charm.sh) |
-| Tooling   | [Bun](https://bun.sh) + [Wrangler](https://developers.cloudflare.com/workers/wrangler/)    |
+| Tooling   | [Bun](https://bun.sh) + [cf](https://www.npmjs.com/package/cf), the Cloudflare CLI         |
 
 ## License
 

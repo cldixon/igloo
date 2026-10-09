@@ -1,5 +1,3 @@
-/// <reference types="@cloudflare/workers-types" />
-
 import type { DirectoryEntry, FileMetadata } from "../shared/types.js";
 
 /**

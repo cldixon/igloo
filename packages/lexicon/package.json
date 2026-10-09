@@ -1,0 +1,17 @@
+{
+  "name": "@igloo/lexicon",
+  "version": "0.1.0",
+  "description": "igloo lexicon: NSIDs, record types and validation shared by the instance and AppView",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,6 +1,4 @@
-/// <reference types="@cloudflare/workers-types" />
-
-/** Bindings and vars declared in wrangler.jsonc. */
+/** Bindings and vars declared in cloudflare.config.ts. */
 export type Bindings = {
   DATA: R2Bucket;
   ASSETS: Fetcher;

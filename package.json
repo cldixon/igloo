@@ -1,41 +1,26 @@
 {
   "name": "igloo",
   "version": "0.1.0",
-  "description": "A personal data repository you deploy yourself",
+  "description": "A network of personal, self-hosted data spaces, joined by AT Protocol",
   "type": "module",
   "private": true,
+  "workspaces": [
+    "instance",
+    "instance/web",
+    "appview",
+    "packages/*"
+  ],
   "scripts": {
-    "setup": "bun scripts/setup.ts",
-    "dev": "bun scripts/dev.ts",
-    "build": "cd web && bun --bun vite build",
-    "deploy": "bun run build && bunx wrangler deploy",
-    "deploy:preview": "bun run build && bunx wrangler versions upload",
-    "types": "bunx wrangler types",
-    "check": "cd web && bun run check",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "bun test"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.27.1",
-    "@sveltejs/adapter-static": "^3.0.10",
-    "@sveltejs/kit": "^2.50.2",
-    "@sveltejs/vite-plugin-svelte": "^6.2.4",
-    "fetch-to-node": "^2.1.0",
-    "hono": "^4.7.0",
-    "marked": "^15.0.0",
-    "svelte": "^5.51.0",
-    "vite": "^7.3.1",
-    "zod": "^4.3.6"
+    "typecheck": "bun run --filter '*' typecheck",
+    "test": "bun test",
+    "check": "bun run format:check && bun run typecheck && bun run --cwd instance check && bun run test && bun run --cwd instance build && bun run --filter '*' deploy:dry"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260908.1",
-    "@types/bun": "^1.2.0",
     "prettier": "^3.9.6",
     "prettier-plugin-svelte": "^4.1.1",
-    "svelte-check": "^4.3.6",
-    "typescript": "^5.9.3",
-    "wrangler": "^4.130.0"
+    "typescript": "^5.9.3"
   },
   "engines": {
     "bun": ">=1.0.0"
