@@ -71,6 +71,10 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   from an event.
 - **OAuth sessions and DPoP nonces live in storage (D1/KV)**, never in memory.
 - **No secrets in records**, ever.
+- **D1 migrations apply themselves** on first use per isolate
+  (`instance/src/db/migrate.ts`); owners never run a migration command.
+  Never edit a shipped migration, and only add: Worker versions roll back,
+  D1 doesn't.
 - **Published data files and license are immutable.** Title, description and
   README can be edited; each edit updates the record.
 
@@ -92,6 +96,9 @@ endpoint and CLI stay in place but aren't extended in phase 1.
 - **Bun** workspace with the isolated linker (`bunfig.toml`), so each package
   has its own `node_modules`; cf needs `wrangler` next to the package that
   declares it. `bun run check` at the root runs everything CI runs.
+- Tests that need D1 use a real local database through Miniflare 4
+  (`instance/src/test/d1.ts`). Wrangler bundles its own Miniflare 5 alpha;
+  don't use that one in tests.
 - **Prettier** for formatting (`bun run format`). CI runs `format:check`.
 - SvelteKit (Svelte 5) for the web UI under `instance/web/`; Go for the CLI under
   `cli/`.

@@ -37,6 +37,10 @@ export default defineConfig(({ mode }) => ({
 
     env: {
       DATA: bindings.r2({ name: "data-repo", dev: { remote: mode !== "local" } }),
+      // Instance state: data dirs, file hashes, publish status, settings. The
+      // schema migrates itself on first use (src/db/migrate.ts). Always a
+      // local database in dev, so development never writes to the real one.
+      DB: bindings.d1({ name: "igloo" }),
       ASSETS: bindings.assets(),
       IGLOO_TITLE: bindings.text("igloo"),
       IGLOO_TAGLINE: bindings.text("personal data repository"),

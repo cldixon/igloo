@@ -1,6 +1,7 @@
 /** Bindings and vars declared in cloudflare.config.ts. */
 export type Bindings = {
   DATA: R2Bucket;
+  DB: D1Database;
   ASSETS: Fetcher;
   IGLOO_TITLE: string;
   IGLOO_TAGLINE: string;

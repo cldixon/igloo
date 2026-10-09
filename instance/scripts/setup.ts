@@ -3,7 +3,7 @@
  * One-shot provisioning for a new igloo instance.
  *
  * Creates the R2 bucket if it does not exist and writes your instance details
- * into cloudflare.config.ts. Run once after cloning, then `bun run deploy`.
+ * into cloudflare.config.ts. The D1 database is created by the first deploy. Run once after cloning, then `bun run deploy`.
  */
 import { $ } from "bun";
 import { readFileSync, writeFileSync } from "fs";
@@ -97,6 +97,9 @@ if (exists) {
 let config = readFileSync(CONFIG, "utf-8");
 config = setString(config, /^[ \t]*name:\s*/m, name, "the Worker name");
 config = setString(config, /bindings\.r2\(\{\s*name:\s*/, bucket, "the R2 bucket name");
+// One database per instance, named after the Worker, so several instances can
+// share a Cloudflare account. cf deploy creates it on first deploy.
+config = setString(config, /bindings\.d1\(\{\s*name:\s*/, name, "the D1 database name");
 config = setString(config, /IGLOO_TITLE:\s*bindings\.text\(/, title, "IGLOO_TITLE");
 config = setString(config, /IGLOO_TAGLINE:\s*bindings\.text\(/, tagline, "IGLOO_TAGLINE");
 config = setDomains(config, domain || null);

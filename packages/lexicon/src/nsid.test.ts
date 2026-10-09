@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { COLLECTIONS, NAMESPACE, NSID } from "./index.ts";
+import { COLLECTIONS, NAMESPACE, NSID } from "./nsid.ts";
 
 describe("lexicon NSIDs", () => {
   test("every NSID lives under the namespace", () => {
