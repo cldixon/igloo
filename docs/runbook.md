@@ -1,4 +1,4 @@
-# Phase 1 runbook: deploy and test the network
+# Runbook: deploy and test the network
 
 Phase 1 is done when, across three instances and three AT Protocol test accounts:
 
@@ -123,3 +123,22 @@ These were built to the specs and tested with fakes, but this session couldn't r
 - **OAuth scopes.** The instance requests `atproto repo:dev.cldixon.igloo.dataDir repo:dev.cldixon.igloo.instance`, so it can write igloo records and nothing else. If a PDS rejects those granular scopes at sign-in, change `OAUTH_SCOPE` in `instance/src/auth/client.ts` to `atproto transition:generic`.
 - **Provisioning.** That `cf deploy` creates the D1 databases and the queue on first deploy.
 - **Jetstream.** The Durable Object's outbound WebSocket in production: how long it stays up, and whether the 30 s alarm and 5-minute cron reconnect it reliably.
+
+## Phase 2 checks (built ahead, under the phase 1 names)
+
+Phase 2 deploys the same way, and its migrations (instance `0002`/`0003`, AppView `0002_search`) apply themselves. The instance now also binds **Workers AI** (`AI`), which `cf deploy` should attach with no setup.
+
+Browsers running the query panel load DuckDB-WASM from `cdn.jsdelivr.net`, and DuckDB fetches its Parquet extension from `extensions.duckdb.org`.
+
+1. **Measured schemas.** Upload a Parquet file: its row count and columns show up straight away (read from the footer). Click **Measure** on a CSV: DuckDB runs in your browser and fills them in.
+2. **Query.** On a published data dir (the instance listing, and the AppView page), run SQL against a Parquet file. In the browser's network tab, the instance should answer `206 Partial Content` for small ranges rather than sending the whole file.
+3. **Search.** On the AppView, try `col:<a column>`, `type:double`, `tag:<a tag>`, and plain words. `/api/search?q=…` returns the same as JSON.
+4. **API tokens.** Create one in the admin panel, then:
+   ```bash
+   curl -H "Authorization: Bearer $IGLOO_TOKEN" https://data.cldixon.dev/api/admin/datadirs
+   curl https://data.cldixon.dev/api/datadirs
+   ```
+5. **MCP.** Point an MCP client at `https://data.cldixon.dev/mcp`. Without a token it gets read tools. With `Authorization: Bearer $IGLOO_TOKEN` it can also create, describe and publish data dirs.
+6. **AI drafts.** In a data dir's editor, click **Draft with AI**, review what it fills in, and save what you keep.
+
+Not yet verified live: Parquet range reads through DuckDB in a real browser (here, only CSV could be tested, because the extension host was blocked), Workers AI's draft quality, and footer profiling on large real-world Parquet files.

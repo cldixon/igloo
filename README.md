@@ -14,7 +14,7 @@ The full design is in the [igloo Network Design](https://claude.ai/artifact/HMW8
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cldixon/igloo/tree/main/instance)
 
-The button deploys an instance into your account. To set one up by hand, follow the Quick Start below. [docs/phase1-runbook.md](docs/phase1-runbook.md) covers deploying the AppView and testing the whole network.
+The button deploys an instance into your account. To set one up by hand, follow the Quick Start below. [docs/runbook.md](docs/runbook.md) covers deploying the AppView and testing the whole network.
 
 ## Architecture
 
@@ -179,18 +179,27 @@ The R2 and D1 bindings authenticate through your Cloudflare account. The only se
 
 ## API
 
-The API is read-only. It exposes three data endpoints, an instance config endpoint, a health check, and the MCP endpoint:
+Reading is public. Writing (the admin API) needs the owner's browser session or an **API token**: create one in the admin panel and send it as `Authorization: Bearer igloo_…`. Tokens always expire, are stored only as hashes, and can do everything except manage tokens.
 
-| Endpoint                  | Description                                             |
-| ------------------------- | ------------------------------------------------------- |
-| `GET /health`             | Health check                                            |
-| `GET /api/list?path=`     | List directory contents (files, subdirectories, README) |
-| `GET /api/download?path=` | Download a file                                         |
-| `GET /api/metadata?path=` | Get file metadata (size, type, modified date, etag)     |
-| `GET /api/config`         | Instance configuration                                  |
-| `POST /mcp`               | MCP endpoint (streamable HTTP, stateless)               |
+| Endpoint                         | Description                                                                         |
+| -------------------------------- | ----------------------------------------------------------------------------------- |
+| `GET /health`                    | Health check                                                                        |
+| `GET /api/datadirs`              | Published data dirs: files, sha256, format, rows, schema, download URLs, record URI |
+| `GET /api/datadirs/:name`        | One published data dir                                                              |
+| `GET /api/list?path=`            | List directory contents (files, subdirectories, README)                             |
+| `GET`/`HEAD /api/download?path=` | Download a file. Supports `Range`, so Parquet can be read selectively               |
+| `GET /api/metadata?path=`        | File metadata (size, type, modified date, etag)                                     |
+| `GET /api/config`                | Instance configuration                                                              |
+| `/api/admin/*`                   | Admin API: data dirs, uploads, README, publish, drafts (session or token)           |
+| `POST /mcp`                      | MCP endpoint (streamable HTTP, stateless)                                           |
 
-See [`skills/igloo/references/api.md`](skills/igloo/references/api.md) for full request/response documentation.
+See [`skills/igloo/references/api.md`](skills/igloo/references/api.md) for the original file API's request/response documentation.
+
+## Querying
+
+Published data dirs with Parquet, CSV or JSON files get a **Query** panel, on the instance's own listing and on the AppView. It runs [DuckDB-WASM](https://duckdb.org/docs/api/wasm/overview) in the browser, reading files straight from the instance with range requests, so a query over a large Parquet file downloads only the columns and row groups it needs. No igloo server does any compute.
+
+Each data file's schema and row count are measured, not guessed: Parquet from its footer when it's added, CSV and JSON with DuckDB in the owner's browser (the **Measure** button). They go into the record, and the AppView can search on them: `col:lat col:lon`, `type:date`, `tag:hydrology`.
 
 ## CLI
 
@@ -212,7 +221,7 @@ The CLI resolves the target instance with this precedence: `--url` flag > `IGLOO
 
 Igloo exposes two agent-facing interfaces over the same data:
 
-- **MCP server** at `POST /mcp` — tools for `igloo_health`, `igloo_list`, `igloo_metadata`, `igloo_read_file`, and `igloo_config`. Point any MCP client at `https://your-igloo/mcp`.
+- **MCP server** at `POST /mcp`. Anyone gets read tools: `igloo_list_datadirs` and `igloo_get_datadir` (files, hashes, schemas, download URLs), plus `igloo_list`, `igloo_metadata`, `igloo_read_file`, `igloo_health` and `igloo_config`. With an API token (`Authorization: Bearer igloo_…`), it adds tools to create, describe, fill, publish and unpublish data dirs.
 - **Agent skill** in [`skills/igloo/`](skills/igloo/) — teaches LLM agents to browse and retrieve datasets through the CLI.
 
 ## Web UI

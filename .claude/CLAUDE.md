@@ -36,10 +36,18 @@ This is the third iteration. Ignore anything describing the earlier ones.
 3. The networked design in the artifact. Iteration 2 becomes the starting
    point for the **instance**; the AppView is new.
 
-## Phase 1 (implemented; deploy and end-to-end testing next)
+## Status
 
-Deploy and test steps, and what hasn't been verified against the live
-network yet: `docs/phase1-runbook.md`.
+- **Phase 1** is implemented; deploy and end-to-end testing next. Steps,
+  and what hasn't been verified against the live network:
+  `docs/runbook.md`.
+- **Phase 2** ("Using the data") is built ahead of the reset, under the
+  phase 1 names: measured schemas, in-browser DuckDB queries, the REST API,
+  API tokens, MCP data dir tools, AppView search and AI drafts. Its
+  checklist is in the runbook too. Not done yet: the AppView's discovery MCP,
+  and MCP over OAuth 2.1 (tokens stand in for now).
+
+## Phase 1
 
 End-to-end prototype across all three layers. Prototype names:
 
@@ -75,11 +83,18 @@ endpoint and CLI stay in place but aren't extended in phase 1.
 - **OAuth sessions and DPoP nonces live in storage (D1/KV)**, never in memory.
 - **No secrets in records**, ever.
 - **D1 migrations apply themselves** on first use per isolate
-  (`instance/src/db/migrate.ts`); owners never run a migration command.
+  (`packages/platform/src/migrate.ts`); owners never run a migration command.
   Never edit a shipped migration, and only add: Worker versions roll back,
   D1 doesn't.
-- **Published data files and license are immutable.** Title, description and
-  README can be edited; each edit updates the record.
+- **Published data files and license are immutable.** Title, description,
+  tags, README and measured file profiles can change; each change updates
+  the record.
+- **Schemas are measured, never guessed.** Parquet is profiled server-side
+  from its footer (hyparquet, range reads); CSV/JSON in the owner's browser
+  with DuckDB. AI only drafts prose (Workers AI), which the owner reviews.
+- **No igloo server computes queries.** DuckDB-WASM in the browser reads
+  files from the instance with range requests (`/api/download` supports HEAD
+  and `Range`).
 
 ## Tooling
 
@@ -100,9 +115,10 @@ endpoint and CLI stay in place but aren't extended in phase 1.
 - **Bun** workspace with the isolated linker (`bunfig.toml`), so each package
   has its own `node_modules`; cf needs `wrangler` next to the package that
   declares it. `bun run check` at the root runs everything CI runs.
-- Tests that need D1 use a real local database through Miniflare 4
-  (`instance/src/test/d1.ts`). Wrangler bundles its own Miniflare 5 alpha;
-  don't use that one in tests.
+- Tests that need D1 or R2 use real local bindings through Miniflare 4
+  (`@igloo/platform/testing`). Wrangler bundles its own Miniflare 5 alpha;
+  don't use that one in tests. Test DIDs must be valid (`did:plc:` + 24
+  base32 characters, `a-z2-7`), or URI parsing rightly rejects them.
 - **Prettier** for formatting (`bun run format`). CI runs `format:check`.
 - SvelteKit (Svelte 5) for the web UI under `instance/web/`; Go for the CLI under
   `cli/`.
@@ -121,10 +137,14 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   - `src/worker.ts` entry; `src/api/app.ts` mounts the routes.
   - `src/api/routes/`: public listing, download, metadata, config (from
     iteration 2), `auth.ts` (OAuth client docs, sign-in, setup-code claim),
-    `admin.ts` (owner-only admin API: data dirs, uploads, publish).
+    `admin.ts` (owner-only admin API: data dirs, uploads, publish, tokens,
+    drafts), `datadirs.ts` (public data dir API). `src/api/mcp.ts`: MCP, with
+    write tools when the request carries an API token.
   - `src/api/session.ts`: browser session cookie and the `requireOwner` guard.
-  - `src/auth/`: owner and setup code, the instance's OAuth client.
-  - `src/admin/`: R2 hashing and upload helpers, PDS writes, AppView notify.
+  - `src/auth/`: owner and setup code, the instance's OAuth client, API
+    tokens (`tokens.ts`).
+  - `src/admin/`: R2 hashing and upload helpers, Parquet profiling
+    (`profile.ts`), AI drafts (`draft.ts`), PDS writes, AppView notify.
   - `src/db/`: D1 migrations and the data dir store (publish rules live here).
   - `src/records.ts`: data dir → validated `dataDir` record.
   - `src/shared/`: types shared with the UI.
@@ -138,8 +158,14 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   - `src/jetstream.ts`: `JetstreamDO`. `src/reconcile.ts`: daily rebuild.
   - `src/views.ts`: server-rendered pages (escape everything; records are
     untrusted). `src/auth.ts`: viewer sign-in (identity only).
-- `packages/lexicon/`: `@igloo/lexicon`, NSIDs, record schemas and
-  validation, AT URIs.
+- `packages/lexicon/`: `@igloo/lexicon`, NSIDs, record schemas (zod) and
+  validation, AT URIs. `lexicons/` has the same records as Lexicon JSON, for
+  publishing at the reset; a test keeps the two in step.
+- `packages/query/`: `@igloo/query`, the DuckDB-WASM loader, `measureFile`
+  and the query panel, shared by both UIs. `loadDuckDB`, `mountQueryPanel`
+  and `measureFile` must stay self-contained (no module-scope references):
+  the AppView ships them with `toString()`. `types.d.ts` declares the API
+  without DOM types so Workers can import it.
 - `packages/platform/`: `@igloo/platform`, shared Worker plumbing: D1
   migrations, settings, DID resolution, XRPC, OAuth (D1 stores, refresh
   lock, loopback client in dev), browser sessions. `./testing` has real

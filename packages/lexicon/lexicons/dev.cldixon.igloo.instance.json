@@ -1,0 +1,26 @@
+{
+  "lexicon": 1,
+  "id": "dev.cldixon.igloo.instance",
+  "description": "Names and describes an igloo instance.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Record key: the instance's host (with port, if any), so one account can run several instances.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["url", "name", "createdAt"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "description": "The instance's https origin. Its host equals the record key."
+          },
+          "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "description": { "type": "string", "maxLength": 1000 },
+          "createdAt": { "type": "string", "format": "datetime" }
+        }
+      }
+    }
+  }
+}
