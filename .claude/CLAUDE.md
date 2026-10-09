@@ -1,26 +1,105 @@
-# Igloo Development Notes
+# igloo — development notes
 
-This repository will develop a prototype application called "igloo".
+## Source of truth
 
-An "igloo" will be a web deployed, personal data repository, intended for machine learning, data engineering and analytics use cases. Individuals will be able to easily deploy their own data repos to the web, enabling the following:
+The design is the **igloo Network Design** artifact (handoff v0.2, Oct 2026):
+https://claude.ai/artifact/HMW8j1kyFnSLYmxThUVDPz
 
-- A web UI interface for data access, download, management, querying, visualization and more 
-- A standard REST API for programmatically accessing the data 
-- An Iceberg Catalog API for querying datasets stored as parquet and CSV via SQL
-- A CLI for managing the igloo instance and data (later)
-- The ability to share datasets, grant access to users, etc.
-- Built-in with the AT Protocol ecosystem, to allow publicizing and sharing of dataset with others 
+Read it before making architectural decisions. Where this file and the artifact
+disagree, the artifact wins. Update this file when that happens.
 
-## Initial MVP
+## What igloo is
 
-To start, we will create an MVP for myself only. Here is the idea:
+A network of personal, self-hosted data spaces, joined by AT Protocol. Three
+parts:
 
-- Store the data in Cloudflare R2 storage
-- Develop a REST API to interface with the R2 storage layer 
-- Build a web UI app via Svelte which provides a visual interface for seeing the available datasets 
-- Deploy both the API and the web UI via Railway
+1. **Instance**: deployed by each owner into their own Cloudflare account.
+   R2 holds data files, D1 holds instance state, and a Worker (Hono) serves an
+   AutoIndex-style public listing, an admin panel and file downloads. The unit
+   of content is a **data dir**: one or more data files, a README and a
+   license, each file hashed with sha256.
+2. **Lexicon**: publishing a data dir writes a `dataDir` record to the
+   owner's PDS. Records describe and point to data; they never contain it.
+3. **AppView**: reads igloo records from Jetstream (plus `notifyRecord` hints
+   from instances), re-fetches each record from its PDS, indexes into D1 and
+   serves a feed with data dir, instance and maintainer pages. It never stores
+   or proxies data files.
 
+## History
 
-## Design and Usage 
+This is the third iteration. Ignore anything describing the earlier ones.
 
-For the initial web app UI, we want to model after the classic Tomcat and NGINX server pages (when there was no `index.html`), which were popular for a time in the Machine Learning community for sharing datasets. Think the UC Irvine data repo. But, we want to give the look a modern facelift, using cooler fonts, icons, styling and interactivity.
+1. Railway + Bun, single-user MVP. Gone.
+2. Single Cloudflare Worker serving a REST API, SvelteKit UI, MCP endpoint and
+   Go CLI over one R2 bucket. This is the code currently in the repo, deployed
+   as the `igloo` Worker at `data.cldixon.dev` (bucket `data-repo`).
+3. The networked design in the artifact. Iteration 2 becomes the starting
+   point for the **instance**; the AppView is new.
+
+## Phase 1 (current work)
+
+End-to-end prototype across all three layers. Prototype names:
+
+- Lexicon namespace: `dev.cldixon.igloo.*` (`dataDir`, `instance`, plus the
+  `notifyRecord` XRPC method)
+- AppView: `igloo.cldixon.dev`
+- Reference instance: `data.cldixon.dev`
+
+Everything published in phase 1 is wiped at the reset point, when the network
+moves to `social.igloo.*` / `igloo.social`. Until then, lexicon shapes can
+change freely.
+
+In scope: one-click deploy (R2, D1, Worker, CORS, OAuth keys, setup code,
+custom domain); AT Protocol OAuth as the only sign-in, with a one-time setup
+code to claim ownership; data dirs with per-file sha256; publish, edit
+metadata/README and unpublish; instance record; notify the AppView; AppView
+Jetstream ingestion, queue, re-fetch, daily reconcile, feed and pages.
+
+Out of scope for phase 1: schema/querying, API and MCP work, mirrors,
+citations, likes, private data, versions, updates. The existing REST API, MCP
+endpoint and CLI stay in place but aren't extended in phase 1.
+
+## Architecture decisions
+
+- **Two Workers.** The instance Worker and the AppView Worker are separate
+  deployables.
+- **Durable Objects only in the AppView.** The AppView uses a singleton
+  `JetstreamDO` to hold the WebSocket. The instance Worker uses no Durable
+  Objects.
+- **Records are triggers, PDS is truth.** Jetstream events and notify calls
+  only trigger a re-fetch from the author's PDS; nothing is indexed straight
+  from an event.
+- **OAuth sessions and DPoP nonces live in storage (D1/KV)**, never in memory.
+- **No secrets in records**, ever.
+- **Published data files and license are immutable.** Title, description and
+  README can be edited; each edit updates the record.
+
+## Tooling
+
+- **Use the `cf` CLI, not `wrangler`.** `cf` is Cloudflare's new CLI and is
+  the direction for this project. Discover commands with
+  `cf cli search "<what you want to do>"` (keep queries generic: no names,
+  domains, IDs or tokens), then `<command> --help`. Don't explore by chaining
+  `--help` calls. `cf migrate` converts a Wrangler project. Some existing
+  scripts and config still use wrangler; replace them as you touch them.
+- **Bun** for installs, scripts and tests (`bun install`, `bun test`).
+- **Prettier** for formatting (`bun run format`). CI runs `format:check`.
+- SvelteKit (Svelte 5) for the web UI under `web/`; Go for the CLI under
+  `cli/`.
+
+## Workflow
+
+- **Conserve GitHub Actions minutes.** Do as much work as possible on one
+  branch and push in batches rather than after every small change. Run the
+  checks CI runs (format, typecheck, svelte-check, tests, build) locally
+  before pushing.
+- Commit history doesn't need to be tidy.
+
+## Repo layout (iteration 2, being extended)
+
+- `src/worker.ts`: Worker entry. `src/api/`: Hono app, routes, R2 storage,
+  MCP.
+- `src/shared/`: types shared between the Worker and the UI.
+- `web/`: SvelteKit SPA, built to `web/build` and served as static assets.
+- `cli/`: Go CLI. `skills/igloo/`: agent skill.
+- `scripts/`: `setup.ts` and `dev.ts`.

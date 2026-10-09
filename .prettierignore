@@ -15,7 +15,6 @@ wrangler.jsonc
 
 # Hand-authored instructions and historical record, kept verbatim
 .claude/
-docs/
 
 # Go, handled by gofmt
 cli/
