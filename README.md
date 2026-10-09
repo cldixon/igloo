@@ -1,44 +1,47 @@
 # ❄ igloo
 
-**A personal data repository you deploy yourself.**
+**Personal, self-hosted data spaces, joined by AT Protocol.**
 
-Igloo gives data scientists, ML engineers, and researchers a simple way to store, browse, and share datasets over the web. Think of it as your own miniature data portal — a modernized take on the classic directory-listing servers that powered early dataset sharing in the ML community.
+Everyone hosts their own data directories on Cloudflare. A shared AppView lets people find them. It's a modern take on the directory-listing servers that early ML research shared datasets from, plus decentralized identity and an API agents can use.
 
-Deploy an igloo and you get:
+igloo is three parts:
 
-- A **REST API** backed by Cloudflare R2 object storage
-- A **web UI** for browsing directories, viewing file metadata, downloading datasets, and reading inline documentation
-- A **CLI** for terminal-native access to your data repo
-- An **MCP server** and **agent skill** so LLM-based tools can browse and retrieve your datasets
+- **An instance** you deploy into your own Cloudflare account. Files live in your R2 bucket as plain files. A Worker serves an AutoIndex-style public listing, an admin panel, file downloads, a REST API and an MCP endpoint. The unit of content is a **data dir**: a folder of data files, a README and a license, each file hashed with sha256.
+- **A lexicon.** Publishing a data dir writes a small `dataDir` record to your AT Protocol repo (your PDS). The record lists the files and their hashes and points at your instance; it never contains the data.
+- **An AppView** that reads igloo records from the network and shows a feed of recent publishes, with pages for each data dir, instance and maintainer. It never stores or proxies data files.
+
+The full design is in the [igloo Network Design](https://claude.ai/artifact/HMW8j1kyFnSLYmxThUVDPz) handoff. This is **phase 1**, an end-to-end prototype: records use the `dev.cldixon.igloo.*` namespace and the AppView runs at `igloo.cldixon.dev`. Both move to `social.igloo.*` / `igloo.social` at the end of the phase.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cldixon/igloo/tree/main/instance)
 
-The button clones this repo into your own GitHub account, provisions the R2 bucket, and wires up CI/CD — see [Continuous Deployment](#continuous-deployment). To set things up by hand instead, follow the Quick Start below.
+The button deploys an instance into your account. To set one up by hand, follow the Quick Start below. [docs/phase1-runbook.md](docs/phase1-runbook.md) covers deploying the AppView and testing the whole network.
 
 ## Architecture
 
-Igloo runs entirely on Cloudflare. A single Worker serves both the REST API and
-the web UI, reading from an R2 bucket through a native binding — there are no
-storage credentials to manage.
+```
+  owner's Cloudflare account              owner's PDS             project
+ ┌────────────────────────────┐       ┌──────────────┐
+ │ instance Worker (Hono)     │ OAuth │ dataDir and  │  Jetstream  ┌──────────────────────┐
+ │  public listing · admin    │──────▶│ instance     │────────────▶│ AppView Worker        │
+ │  REST API · MCP · downloads│ write │ records      │             │  JetstreamDO → Queue  │
+ │ R2: <data dir>/<files>     │       └──────────────┘   re-fetch  │  → index in D1        │
+ │ D1: data dirs, hashes,     │◀── notifyRecord (hint) ────────────│  feed and pages       │
+ │     sessions, settings     │                                    └──────────────────────┘
+ └────────────────────────────┘
+          ▲ files, straight from R2 via the instance
+          └──────────── browsers and agents
+```
 
-```
-                  ┌──────────────┐
-                  │      R2      │
-                  │   (bucket)   │
-                  └──────┬───────┘
-                         │ binding
-                  ┌──────┴───────┐
-                  │    Worker    │  Hono + Static Assets
-                  │  API + UI    │
-                  └──┬────────┬──┘
-                     │        │
-            ┌────────┘        └────────┐
-            │                          │
-     ┌──────┴───────┐          ┌───────┴──────┐
-     │   Web UI     │          │  CLI / MCP   │
-     │  SvelteKit   │          │  Go / agents │
-     └──────────────┘          └──────────────┘
-```
+The repo is a Bun workspace:
+
+| Path                | What                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| `instance/`         | The instance Worker and its SvelteKit UI (`instance/web`)                                  |
+| `appview/`          | The AppView Worker                                                                         |
+| `packages/lexicon`  | Record schemas, validation and NSIDs, shared by both                                       |
+| `packages/platform` | Shared Worker plumbing: D1 migrations, AT Protocol identity, XRPC, OAuth, browser sessions |
+| `cli/`              | Go CLI                                                                                     |
+| `skills/igloo/`     | Agent skill                                                                                |
 
 ## Quick Start
 
@@ -66,7 +69,7 @@ bunx cf auth login
 bun run setup
 ```
 
-`bun run setup` prompts for your Worker name, bucket name, and site title, creates the R2 bucket if it does not already exist, and writes your answers into `cloudflare.config.ts`.
+`bun run setup` asks for your Worker name, bucket name, site title and domain. It creates the R2 bucket if it doesn't exist, sets CORS on it, and writes your answers into `cloudflare.config.ts`. The D1 database (named after the Worker) is created by the first deploy, and its schema migrates itself.
 
 ### 3. Run locally
 
@@ -82,13 +85,21 @@ Pass `--local` to use a simulated R2 instead of the live bucket:
 bun run dev --local
 ```
 
-### 4. Deploy
+### 4. Deploy and claim
 
 ```bash
 bun run deploy
+bun run secrets
 ```
 
-This builds the web UI and deploys the Worker together as one unit.
+`bun run deploy` builds the web UI and deploys the Worker. `bun run secrets` sets two secrets on it and prints the setup code:
+
+- `SETUP_CODE`: the one-time code that claims the instance.
+- `OAUTH_SIGNING_KEY`: the key the instance signs its OAuth requests with.
+
+Both are optional. Without them the instance generates its own on first use, keeps them in D1, and writes the setup code to the Worker's logs.
+
+Then open `/admin` on your instance and sign in with your AT Protocol handle (Bluesky or any PDS) and the setup code. That account becomes the owner; the code stops working, and from then on only the owner can sign in. The instance asks your PDS only for write access to igloo records.
 
 `bun run setup` writes your custom domain into `cloudflare.config.ts`. The zone must be on your own Cloudflare account, or the deploy will fail:
 
@@ -100,7 +111,7 @@ Answer the domain prompt with a blank line to drop the domain and serve from `*.
 
 ## Continuous Deployment
 
-Igloo deploys as a **single Worker** — the API and the web UI ship together as one artifact — so [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) handles the whole pipeline natively.
+An instance deploys as a **single Worker** (the API and the web UI ship together), so [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) handles the whole pipeline natively. The AppView is a second Worker connected the same way, with root directory `appview`.
 
 The two systems have separate jobs, and neither does the other's work:
 
@@ -130,36 +141,41 @@ Each PR comment carries two links: a stable branch alias (`<branch>-<worker>.<su
 
 ### Caveats
 
-- **Preview versions share production bindings by default.** Every preview reads the same R2 bucket as production. That is harmless while igloo is read-only. Once a write path exists, `cloudflare.config.ts` can check the `isPreview` flag cf passes to config factories and bind a separate preview bucket.
-- **Preview URLs require no Durable Objects.** Workers that implement a Durable Object do not get preview URLs generated. Igloo does not use them today.
+- **Preview versions share production bindings by default.** An instance preview reads and writes the same R2 bucket and D1 database as production, and applies its migrations to that database. Migrations only ever add, which is what keeps this safe. `cloudflare.config.ts` can check the `isPreview` flag cf passes to config factories to bind separate preview resources if that becomes a problem.
+- **Workers with Durable Objects get no preview URLs.** The instance has none. The AppView has one (`JetstreamDO`), so it sets `previewUrls: false` and only deploys from `main`. In its Workers Builds settings, leave non-production branch builds off.
 
 ## Adding Data
 
-Igloo is currently read-only over HTTP — upload with any S3-compatible tool:
+In the admin panel (`/admin`):
+
+1. **Create a data dir.** Its name is its folder in the bucket. Folders already in the bucket appear as one-click options.
+2. **Add files.** Upload them (large files go up in 50 MB parts), or add files already in the folder. Every file is hashed with sha256 from R2 after upload.
+3. **Write the README and pick a license.**
+4. **Publish.** The instance writes a `dataDir` record to your repo and tells the AppView, so it appears on the feed within seconds.
+
+While a data dir is published its files and license are fixed, since the record's hashes point at them. Title, description and README stay editable, and each save updates the record. Unpublishing deletes the record and makes the data dir editable again.
+
+You can still copy files into the bucket with any S3-compatible tool and add them from the admin panel:
 
 ```bash
-# a single file
-bunx cf r2 objects put datasets/iris.csv --bucket-name my-bucket --file iris.csv
-
-# a whole directory (recommended for large datasets)
 rclone copy ./my-dataset r2:my-bucket/my-dataset
 ```
-
-A `README.md` at any prefix is rendered inline when browsing that directory.
 
 ## Configuration
 
 All instance configuration lives in `instance/cloudflare.config.ts`:
 
-| Setting             | Description                              |
-| ------------------- | ---------------------------------------- |
-| `name`              | Worker name                              |
-| `env.DATA` name     | R2 bucket holding your data              |
-| `env.IGLOO_TITLE`   | Site title                               |
-| `env.IGLOO_TAGLINE` | Site tagline                             |
-| `env.IGLOO_THEME`   | Default visual theme (`repo` or `index`) |
+| Setting                 | Description                              |
+| ----------------------- | ---------------------------------------- |
+| `name`                  | Worker name                              |
+| `env.DATA` name         | R2 bucket holding your data              |
+| `env.IGLOO_TITLE`       | Site title                               |
+| `env.IGLOO_TAGLINE`     | Site tagline                             |
+| `env.IGLOO_THEME`       | Default visual theme (`repo` or `index`) |
+| `env.IGLOO_APPVIEW_URL` | The AppView to notify after publishing   |
+| `env.DB` name           | D1 database for instance state           |
 
-There are no secrets or `.env` files — the R2 binding authenticates through your Cloudflare account.
+The R2 and D1 bindings authenticate through your Cloudflare account. The only secrets are the optional `SETUP_CODE` and `OAUTH_SIGNING_KEY` (see [Deploy and claim](#4-deploy-and-claim)).
 
 ## API
 

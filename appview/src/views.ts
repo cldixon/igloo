@@ -209,8 +209,8 @@ export function feedPage(
           ? html`<div class="empty">Nothing published yet.</div>`
           : html`<div class="feed">
               ${items.map((d) =>
-              feedItem(d, maintainers.get(d.did), instances.get(`${d.did} ${d.instanceUrl}`)),
-            )}
+                feedItem(d, maintainers.get(d.did), instances.get(`${d.did} ${d.instanceUrl}`)),
+              )}
             </div>`
       }
       ${next ? html`<a href="/?before=${encodeURIComponent(next)}">Older →</a>` : ""}`,
@@ -391,12 +391,12 @@ export function maintainerPage(
           ? html`<div class="empty">No instance records.</div>`
           : html`<div class="feed">
               ${instances.map(
-              (i) =>
-                html`<article class="item">
-                  <h2><a href="${instancePath(i.did, i.url)}">${i.record.name}</a></h2>
-                  <div class="facts"><a href="${i.url}">${host(i.url)}</a></div>
-                </article>`,
-            )}
+                (i) =>
+                  html`<article class="item">
+                    <h2><a href="${instancePath(i.did, i.url)}">${i.record.name}</a></h2>
+                    <div class="facts"><a href="${i.url}">${host(i.url)}</a></div>
+                  </article>`,
+              )}
             </div>`
       }
       <h2>Data dirs</h2>

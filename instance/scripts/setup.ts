@@ -94,6 +94,18 @@ if (exists) {
   await $`bunx cf r2 buckets create --name ${bucket}`.quiet();
 }
 
+// Browsers (the AppView's README check now; DuckDB in phase 2) read files with
+// range requests, so the bucket allows cross-origin GET/HEAD with Range.
+const CORS_RULES = [
+  {
+    allowed: { origins: ["*"], methods: ["GET", "HEAD"], headers: ["Range"] },
+    exposeHeaders: ["Content-Range", "Content-Length", "ETag"],
+    maxAgeSeconds: 3600,
+  },
+];
+await $`bunx cf r2 buckets cors update ${bucket} --force --rules ${JSON.stringify(CORS_RULES)}`.quiet();
+console.log(`✓ CORS set on "${bucket}"`);
+
 let config = readFileSync(CONFIG, "utf-8");
 config = setString(config, /^[ \t]*name:\s*/m, name, "the Worker name");
 config = setString(config, /bindings\.r2\(\{\s*name:\s*/, bucket, "the R2 bucket name");
@@ -116,4 +128,5 @@ console.log(
 );
 console.log("Next steps:");
 console.log("  bun run dev      # browse locally at http://localhost:5173");
-console.log("  bun run deploy   # build the UI and deploy the Worker\n");
+console.log("  bun run deploy   # build the UI and deploy the Worker");
+console.log("  bun run secrets  # then: set the setup code and OAuth key as secrets\n");

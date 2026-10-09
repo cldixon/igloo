@@ -36,7 +36,10 @@ This is the third iteration. Ignore anything describing the earlier ones.
 3. The networked design in the artifact. Iteration 2 becomes the starting
    point for the **instance**; the AppView is new.
 
-## Phase 1 (current work)
+## Phase 1 (implemented; deploy and end-to-end testing next)
+
+Deploy and test steps, and what hasn't been verified against the live
+network yet: `docs/phase1-runbook.md`.
 
 End-to-end prototype across all three layers. Prototype names:
 
@@ -90,7 +93,8 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   directory, because cf still bundles through Wrangler. `cf workers types`
   generates `.cloudflare/types/index.d.ts` (Env plus runtime types); each
   package's `typecheck` script runs it first. Don't add
-  `@cloudflare/workers-types`.
+  `@cloudflare/workers-types` to the Workers; only `packages/platform`, which
+  has no config of its own, uses it for its typecheck.
 - `cf dev` evaluates the config with `--mode`. The instance binds the real R2
   bucket in dev unless the mode is `local` (`bun run dev --local`).
 - **Bun** workspace with the isolated linker (`bunfig.toml`), so each package
@@ -113,14 +117,43 @@ endpoint and CLI stay in place but aren't extended in phase 1.
 
 ## Repo layout
 
-- `instance/`: the instance Worker (`@igloo/instance`), from iteration 2.
-  - `src/worker.ts` entry; `src/api/` Hono app, routes, R2 storage, MCP;
-    `src/shared/` types shared with the UI.
-  - `web/`: SvelteKit SPA (`@igloo/instance-web`), built to `web/build` and
-    served as static assets.
-  - `scripts/`: `setup.ts` (writes `cloudflare.config.ts`) and `dev.ts`.
-- `appview/`: the AppView Worker (`@igloo/appview`), at
-  `igloo.cldixon.dev`.
-- `packages/lexicon/`: `@igloo/lexicon`, NSIDs and record types shared by
-  both Workers.
+- `instance/`: the instance Worker (`@igloo/instance`).
+  - `src/worker.ts` entry; `src/api/app.ts` mounts the routes.
+  - `src/api/routes/`: public listing, download, metadata, config (from
+    iteration 2), `auth.ts` (OAuth client docs, sign-in, setup-code claim),
+    `admin.ts` (owner-only admin API: data dirs, uploads, publish).
+  - `src/api/session.ts`: browser session cookie and the `requireOwner` guard.
+  - `src/auth/`: owner and setup code, the instance's OAuth client.
+  - `src/admin/`: R2 hashing and upload helpers, PDS writes, AppView notify.
+  - `src/db/`: D1 migrations and the data dir store (publish rules live here).
+  - `src/records.ts`: data dir → validated `dataDir` record.
+  - `src/shared/`: types shared with the UI.
+  - `web/`: SvelteKit SPA (`@igloo/instance-web`); `/admin` is the admin panel.
+  - `scripts/`: `setup.ts` (config, bucket, CORS), `secrets.ts` (setup code
+    and OAuth key as Worker secrets), `dev.ts`.
+- `appview/`: the AppView Worker (`@igloo/appview`), at `igloo.cldixon.dev`.
+  - `src/index.ts`: routes, `notifyRecord`, operator `/admin/*` (needs the
+    `ADMIN_TOKEN` secret), queue and cron handlers.
+  - `src/indexer.ts`: re-fetch a record from its PDS, validate, index.
+  - `src/jetstream.ts`: `JetstreamDO`. `src/reconcile.ts`: daily rebuild.
+  - `src/views.ts`: server-rendered pages (escape everything; records are
+    untrusted). `src/auth.ts`: viewer sign-in (identity only).
+- `packages/lexicon/`: `@igloo/lexicon`, NSIDs, record schemas and
+  validation, AT URIs.
+- `packages/platform/`: `@igloo/platform`, shared Worker plumbing: D1
+  migrations, settings, DID resolution, XRPC, OAuth (D1 stores, refresh
+  lock, loopback client in dev), browser sessions. `./testing` has real
+  local D1/R2 bindings for tests.
 - `cli/`: Go CLI. `skills/igloo/`: agent skill.
+
+## Local development notes
+
+- Dev servers: instance on `127.0.0.1:8787`, AppView on `127.0.0.1:8788`
+  (pinned in each `wrangler.config.ts`, so requests keep their loopback
+  origin instead of being rewritten to the custom domain).
+- OAuth sign-in only works locally on `http://127.0.0.1:<port>` (AT Protocol
+  loopback clients), not `localhost` or the Vite port.
+- Bun can't load `cloudflare:workers`; tests that import the AppView entry
+  stub it with `mock.module`.
+- Don't `pkill -f` with a pattern that also matches your own shell command.
+  Use `pgrep -x workerd` to stop dev servers.

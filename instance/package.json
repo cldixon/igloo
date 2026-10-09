@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "setup": "bun scripts/setup.ts",
+    "secrets": "bun scripts/secrets.ts",
     "dev": "bun scripts/dev.ts",
     "build": "cd web && bun --bun vite build",
     "deploy": "bun run build && cf deploy",

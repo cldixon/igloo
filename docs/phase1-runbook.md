@@ -1,0 +1,125 @@
+# Phase 1 runbook: deploy and test the network
+
+Phase 1 is done when, across three instances and three AT Protocol test accounts:
+
+1. A publish on any instance appears on the feed within seconds.
+2. Metadata edits and unpublishes propagate.
+3. Wiping the AppView index and running reconcile rebuilds the same feed.
+4. A downloaded file matches the hash in its record.
+
+Everything below uses the `cf` CLI (`bunx cf …` from a package directory). Run `bun install` at the repo root first.
+
+## 0. Before you start
+
+- **Three AT Protocol accounts** for testing (Bluesky accounts work). One owns each instance.
+- **Network access**, if running from a Claude cloud session: the session's environment needs these hosts allowed:
+  - `*.cldixon.dev` (the instances and the AppView)
+  - `plc.directory` (DID resolution)
+  - `bsky.social` and `*.bsky.network` (PDSes, the relay, Jetstream)
+  - `public.api.bsky.app` (profiles)
+  - `cloudflare-dns.com` (handle resolution)
+
+## 1. Deploy the AppView
+
+```bash
+cd appview
+bunx cf deploy
+```
+
+The first deploy should create the `igloo-appview` D1 database and the `igloo-appview-index` queue (`cf deploy` provisions bindings by default), and attach `igloo.cldixon.dev`. If it complains about the queue, create it and deploy again:
+
+```bash
+bunx cf queues create --queue-name igloo-appview-index
+```
+
+Set an operator token. It enables `/admin/reconcile` and `/admin/jetstream`:
+
+```bash
+TOKEN=$(openssl rand -hex 24)
+bunx cf workers secrets update ADMIN_TOKEN --worker igloo-appview --type secret_text --text "$TOKEN"
+```
+
+Start the Jetstream connection now, rather than waiting for the 5-minute cron:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" https://igloo.cldixon.dev/admin/jetstream
+# {"connected":true,"cursor":…,"lastEventAt":null}
+```
+
+For deploys on push, connect the `igloo-appview` Worker to the repo in Workers Builds with root directory `appview`, build command `bun install`, deploy command `bunx cf deploy`, and non-production branch builds off.
+
+## 2. Deploy the reference instance (data.cldixon.dev)
+
+`instance/cloudflare.config.ts` already describes it. Workers Builds deploys it from `main` once this branch merges. To do it by hand:
+
+```bash
+cd instance
+bunx cf r2 buckets cors update data-repo --force --rules '[{"allowed":{"origins":["*"],"methods":["GET","HEAD"],"headers":["Range"]},"exposeHeaders":["Content-Range","Content-Length","ETag"],"maxAgeSeconds":3600}]'
+bun run deploy
+bun run secrets        # prints the setup code
+```
+
+Open <https://data.cldixon.dev/admin>, sign in with test account 1 and the setup code. Then, in the admin panel:
+
+1. Save the **instance profile**. This publishes the instance record.
+2. Turn one of the existing folders (`usbr`, `in-our-time`, `cspan-booknotes`) into a data dir: click it under "Folders in the bucket", then **Add all** to hash its files.
+3. Add a README and a license, then **Publish**.
+
+## 3. Deploy two more instances
+
+Each instance needs its own Worker, bucket, database and domain. Use a separate checkout so the reference config stays untouched:
+
+```bash
+git worktree add ../igloo-2
+cd ../igloo-2 && bun install && cd instance
+bun run setup     # name igloo-2, bucket igloo-2, domain igloo-2.cldixon.dev
+bun run deploy
+bun run secrets
+```
+
+Repeat with `igloo-3`. Claim each with a different test account, then publish a data dir from each.
+
+## 4. Check the done criteria
+
+**1. Publish to feed in seconds.** Publish on any instance and reload <https://igloo.cldixon.dev>. The instance's notify call queues the record, and Jetstream delivers the same event shortly after. To test the Jetstream path alone, set `IGLOO_APPVIEW_URL` on one instance to an unused URL. Its publishes should still appear, a few seconds later. `/admin/jetstream` shows `lastEventAt`.
+
+**2. Edits and unpublishes propagate.** Change a title or the README of a published data dir: the feed and the data dir page update. Unpublish: it leaves the feed.
+
+**3. Wipe and reconcile.** Note the feed, then empty the index and rebuild it:
+
+```bash
+cd appview
+bunx cf d1 list                     # find the igloo-appview database ID
+bunx cf d1 query <database-id> --sql "DELETE FROM data_dirs; DELETE FROM instances; DELETE FROM maintainers;"
+curl -X POST -H "Authorization: Bearer $TOKEN" https://igloo.cldixon.dev/admin/reconcile
+# {"repos":3,"records":…,"stale":0,"failedRepos":[]}
+```
+
+Reload the feed after a few seconds; it should match. Reconcile also runs daily at 04:17 UTC.
+
+**4. Hashes match.** On a data dir page, download a file and compare:
+
+```bash
+curl -sL "https://data.cldixon.dev/api/download?path=<data dir>/<file>" | sha256sum
+```
+
+The README panel on the data dir page runs the same check in the browser.
+
+## Local development
+
+```bash
+cd instance && bun run dev --local   # instance on 127.0.0.1:8787, UI on :5173
+cd appview && bunx cf dev            # AppView on 127.0.0.1:8788
+```
+
+Sign-in works locally through AT Protocol loopback clients, but only on `http://127.0.0.1:<port>`, not `localhost` and not the Vite port. To try the admin panel locally, run `bun run build` in `instance`, then open <http://127.0.0.1:8787/admin>.
+
+A local instance publishes real records, pointing at `http://127.0.0.1:8787`, and notifies the AppView in `IGLOO_APPVIEW_URL`. Use a test account.
+
+## Not yet verified against the live network
+
+These were built to the specs and tested with fakes, but this session couldn't reach the network:
+
+- **OAuth scopes.** The instance requests `atproto repo:dev.cldixon.igloo.dataDir repo:dev.cldixon.igloo.instance`, so it can write igloo records and nothing else. If a PDS rejects those granular scopes at sign-in, change `OAUTH_SCOPE` in `instance/src/auth/client.ts` to `atproto transition:generic`.
+- **Provisioning.** That `cf deploy` creates the D1 databases and the queue on first deploy.
+- **Jetstream.** The Durable Object's outbound WebSocket in production: how long it stays up, and whether the 30 s alarm and 5-minute cron reconnect it reliably.
