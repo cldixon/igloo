@@ -29,7 +29,10 @@
         {#if $config.title === "igloo"}<span class="logo-icon">&#10052;</span>{/if}
         <span class="logo-text">{$config.title}</span>
       </a>
-      <SettingsMenu />
+      <div class="header-actions">
+        <a href="/admin" class="admin-link">admin</a>
+        <SettingsMenu />
+      </div>
     </div>
   </header>
 
@@ -71,6 +74,22 @@
     align-items: center;
     gap: 0.5rem;
     text-decoration: none;
+    color: var(--nav-text);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .admin-link {
+    font-family: var(--nav-font);
+    font-size: 0.8125rem;
+    color: var(--nav-text-secondary);
+  }
+
+  .admin-link:hover {
     color: var(--nav-text);
   }
 
