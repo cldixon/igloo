@@ -15,6 +15,7 @@
       "version": "0.1.0",
       "dependencies": {
         "@igloo/lexicon": "workspace:*",
+        "@igloo/platform": "workspace:*",
         "hono": "^4.7.0",
       },
       "devDependencies": {

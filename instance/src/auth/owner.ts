@@ -1,5 +1,5 @@
 import { generateToken } from "@igloo/platform";
-import { getSetting, initSetting } from "./settings.js";
+import { getSetting, initSetting } from "@igloo/platform";
 
 /**
  * Ownership of the instance.

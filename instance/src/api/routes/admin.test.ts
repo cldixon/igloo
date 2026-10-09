@@ -46,7 +46,7 @@ afterAll(() => {
 
 const { app } = await import("../app.js");
 const { getDb } = await import("../../db/migrations.js");
-const { setSetting } = await import("../../auth/settings.js");
+const { setSetting } = await import("@igloo/platform");
 
 let env: Record<string, unknown>;
 let bucket: R2Bucket;

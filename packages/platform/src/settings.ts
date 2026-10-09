@@ -1,4 +1,7 @@
-/** Small key/value settings for the instance, in D1. */
+/**
+ * Small key/value settings in a `settings (key, value, updated_at)` table,
+ * which each Worker creates in its own migrations.
+ */
 
 export async function getSetting(db: D1Database, key: string): Promise<string | null> {
   const row = await db

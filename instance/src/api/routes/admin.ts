@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { NSID, instanceRkey, relativePath, validateInstance } from "@igloo/lexicon";
 import { getOAuthClient } from "../../auth/client.js";
-import { getSetting, setSetting } from "../../auth/settings.js";
+import { getSetting, setSetting } from "@igloo/platform";
 import {
   DataDirError,
   README_PATH,

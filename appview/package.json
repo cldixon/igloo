@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@igloo/lexicon": "workspace:*",
+    "@igloo/platform": "workspace:*",
     "hono": "^4.7.0"
   },
   "devDependencies": {

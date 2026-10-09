@@ -20,6 +20,7 @@ import {
 import { AtprotoDohHandleResolver } from "@atproto-labs/handle-resolver";
 import type { Migration } from "./migrate.ts";
 import { readXrpcResponse } from "./xrpc.ts";
+import { initSetting } from "./settings.ts";
 
 export { OAuthClient };
 export type { OAuthSession } from "@atproto/oauth-client";
@@ -259,4 +260,35 @@ export async function xrpcProcedure<T>(
     body: JSON.stringify(input),
   });
   return readXrpcResponse<T>(res, method);
+}
+
+const clients = new Map<string, Promise<OAuthClient>>();
+
+/**
+ * The OAuth client for a Worker at `origin`, cached per isolate. Its signing
+ * key is `signingKeySecret` when set, otherwise generated once and kept in the
+ * `settings` table, so a deploy without secrets still works.
+ */
+export function oauthClientFor(
+  db: D1Database,
+  origin: string,
+  options: { scope: string; clientName: string; signingKeySecret?: string },
+): Promise<OAuthClient> {
+  const cacheKey = `${origin} ${options.scope}`;
+  let client = clients.get(cacheKey);
+  if (!client) {
+    client = (async () => {
+      const metadata = clientMetadata(origin, options);
+      const signingKey = isLoopback(origin)
+        ? undefined
+        : await signingKeyFromJwk(
+            options.signingKeySecret ??
+              (await initSetting(db, "oauth_signing_jwk", await generateSigningJwk())),
+          );
+      return createOAuthClient({ db, metadata, signingKey });
+    })();
+    client.catch(() => clients.delete(cacheKey));
+    clients.set(cacheKey, client);
+  }
+  return client;
 }
