@@ -107,6 +107,11 @@ export const admin = {
     return data as One;
   },
   deleteReadme: (slug: string) => request<One>("DELETE", `${dir(slug)}/readme`),
+  draft: (slug: string) =>
+    request<{ draft: { description: string; tags: string[]; readme: string } }>(
+      "POST",
+      `${dir(slug)}/draft`,
+    ),
   publish: (slug: string) => request<One>("POST", `${dir(slug)}/publish`),
   unpublish: (slug: string) => request<One>("POST", `${dir(slug)}/unpublish`),
   instance: () => request<{ instance: InstanceProfile }>("GET", "/api/admin/instance"),

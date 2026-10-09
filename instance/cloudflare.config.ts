@@ -46,6 +46,9 @@ export default defineConfig(({ mode }) => ({
       IGLOO_TAGLINE: bindings.text("personal data repository"),
       IGLOO_THEME: bindings.text("repo"),
       IGLOO_APPVIEW_URL: bindings.text("https://igloo.cldixon.dev"),
+      // Workers AI drafts READMEs and tags for the owner to review. It always
+      // runs remotely, so local mode leaves it out.
+      ...(mode !== "local" && { AI: bindings.ai() }),
     },
   },
 }));

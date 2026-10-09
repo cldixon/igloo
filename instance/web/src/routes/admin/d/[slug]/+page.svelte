@@ -123,6 +123,15 @@
       await refresh((await admin.setProfile(slug, { path, format, rows, schema })).dataDir);
     }, `Measured ${path}.`);
 
+  /** Fill the README (and an empty description and tags) with an AI draft, unsaved. */
+  const draft = () =>
+    run(async () => {
+      const { draft } = await admin.draft(slug);
+      readme = draft.readme || readme;
+      if (!description.trim()) description = draft.description;
+      if (!tags.trim()) tags = draft.tags.join(", ");
+    }, "Drafted from the measured files. Review it, then save what you keep.");
+
   const register = (paths: string[]) =>
     run(async () => refresh((await admin.register(slug, paths)).dataDir), "Added and hashed.");
 
@@ -334,6 +343,7 @@
           slug}&#10;&#10;What's in this data, where it came from, how to use it."></textarea>
       <div class="row">
         <button class="primary" onclick={saveReadme} disabled={busy}>Save README</button>
+        <button onclick={draft} disabled={busy || dir.files.length === 0}>Draft with AI</button>
         <span class="muted">Saved as {slug}/README.md. Empty it and save to remove it.</span>
       </div>
     </section>

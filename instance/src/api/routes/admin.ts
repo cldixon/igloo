@@ -21,6 +21,7 @@ import {
 } from "../../db/dataDirs.js";
 import { buildDataDirRecord } from "../../records.js";
 import { profileFile } from "../../admin/profile.js";
+import { draftDocs } from "../../admin/draft.js";
 import { contentTypeFor, hashObject, objectKey, sha256Text, sizedBody } from "../../admin/files.js";
 import {
   PdsError,
@@ -359,6 +360,27 @@ adminRoute.delete("/datadirs/:slug/readme", async (c) => {
   await c.env.DATA.delete(objectKey(slug, README_PATH));
   const dir = await setReadme(c.var.db, slug, null);
   return c.json({ dataDir: await syncRecord(c, dir) });
+});
+
+// --- AI drafts --------------------------------------------------------------
+
+/**
+ * Draft a README, description and tags from the data dir's measured facts.
+ * Returns the draft only; the owner reviews it and saves what they keep.
+ */
+adminRoute.post("/datadirs/:slug/draft", async (c) => {
+  if (!c.env.AI) return c.json({ error: "Workers AI isn't bound to this instance" }, 501);
+  const dir = await requireDir(c, c.req.param("slug"));
+  if (dir.files.length === 0) {
+    return c.json({ error: "Add files first: the draft is written from them" }, 409);
+  }
+  const readme = await c.env.DATA.get(objectKey(dir.slug, README_PATH));
+  try {
+    return c.json({ draft: await draftDocs(c.env.AI, dir, readme ? await readme.text() : null) });
+  } catch (error) {
+    console.warn("AI draft failed", error);
+    return c.json({ error: "The draft didn't work this time. Try again." }, 502);
+  }
 });
 
 // --- Publishing -------------------------------------------------------------

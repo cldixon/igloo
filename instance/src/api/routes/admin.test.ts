@@ -323,6 +323,34 @@ describe("schema and tags (phase 2)", () => {
   });
 });
 
+describe("AI drafts", () => {
+  test("returns a draft without saving anything", async () => {
+    await wikiWithFile();
+    env.AI = {
+      run: async () => ({
+        response:
+          '{"description":"A tiny CSV.","tags":["demo"],"readme":"# Wiki\\n\\nTwo columns."}',
+      }),
+    };
+    const { status, body } = await call("POST", "/datadirs/wiki/draft");
+    expect(status).toBe(200);
+    expect(body.draft).toEqual({
+      description: "A tiny CSV.",
+      tags: ["demo"],
+      readme: "# Wiki\n\nTwo columns.",
+    });
+    const { body: after } = await call("GET", "/datadirs/wiki");
+    expect(after.dataDir.description).toBeNull();
+    expect(after.readme).toBeNull();
+  });
+
+  test("is unavailable without Workers AI", async () => {
+    await wikiWithFile();
+    delete env.AI;
+    expect((await call("POST", "/datadirs/wiki/draft")).status).toBe(501);
+  });
+});
+
 describe("instance profile", () => {
   test("publishes the instance record keyed by host", async () => {
     const { status, body } = await call("PUT", "/instance", {
