@@ -38,7 +38,7 @@ describe("dataDir", () => {
   });
 
   test("ignores fields added by newer lexicon versions", () => {
-    const result = validateDataDir({ ...example, version: "2026.3", tags: ["web"] });
+    const result = validateDataDir({ ...example, version: "2026.3", access: { mirror: true } });
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.value).toEqual(example);
   });
@@ -94,6 +94,44 @@ describe("dataDir", () => {
 
   test("allows http on localhost for development", () => {
     expect(validateDataDir({ ...example, instance: "http://localhost:8787" }).ok).toBe(true);
+  });
+});
+
+describe("phase 2 fields", () => {
+  const files = [
+    {
+      path: "pageviews.parquet",
+      size: 100,
+      sha256: HASH_A,
+      format: "parquet",
+      rows: 9100000,
+      schema: [
+        { name: "date", type: "DATE" },
+        { name: "views", type: "BIGINT" },
+      ],
+    },
+  ];
+
+  test("format, rows, schema and tags are accepted", () => {
+    const record = { ...example, files, tags: ["web", "time-series"] };
+    expect(validateDataDir(record)).toEqual({ ok: true, value: record });
+  });
+
+  test("a phase 1 record is still valid", () => {
+    expect(validateDataDir(example).ok).toBe(true);
+  });
+
+  test.each([
+    ["negative rows", { ...example, files: [{ ...files[0], rows: -1 }] }],
+    [
+      "unnamed column",
+      { ...example, files: [{ ...files[0], schema: [{ name: "", type: "INT" }] }] },
+    ],
+    ["uppercase tag", { ...example, tags: ["Web"] }],
+    ["tag with spaces", { ...example, tags: ["time series"] }],
+    ["too many tags", { ...example, tags: Array.from({ length: 21 }, (_, i) => `t${i}`) }],
+  ])("rejects %s", (_, record) => {
+    expect(validateDataDir(record).ok).toBe(false);
   });
 });
 

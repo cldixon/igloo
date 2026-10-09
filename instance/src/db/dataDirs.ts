@@ -1,4 +1,4 @@
-import { isSlug, relativePath, sha256Hex } from "@igloo/lexicon";
+import { dataFile, isSlug, relativePath, sha256Hex, tag } from "@igloo/lexicon";
 import type { DataDir, DataDirFile, DataDirStatus } from "../shared/types.js";
 
 /**
@@ -33,6 +33,7 @@ type DataDirRow = {
   description: string | null;
   license: string | null;
   readme_sha256: string | null;
+  tags: string | null;
   status: DataDirStatus;
   record_uri: string | null;
   record_cid: string | null;
@@ -48,6 +49,9 @@ type FileRow = {
   sha256: string;
   content_type: string | null;
   uploaded_at: string;
+  format: string | null;
+  rows: number | null;
+  schema: string | null;
 };
 
 function toDataDir(row: DataDirRow, files: FileRow[]): DataDir {
@@ -57,6 +61,7 @@ function toDataDir(row: DataDirRow, files: FileRow[]): DataDir {
     description: row.description,
     license: row.license,
     readmeSha256: row.readme_sha256,
+    tags: row.tags ? JSON.parse(row.tags) : [],
     status: row.status,
     recordUri: row.record_uri,
     recordCid: row.record_cid,
@@ -69,6 +74,9 @@ function toDataDir(row: DataDirRow, files: FileRow[]): DataDir {
       sha256: f.sha256,
       contentType: f.content_type,
       uploadedAt: f.uploaded_at,
+      format: f.format,
+      rows: f.rows,
+      schema: f.schema ? JSON.parse(f.schema) : null,
     })),
   };
 }
@@ -121,7 +129,24 @@ export async function listDataDirs(db: D1Database): Promise<DataDir[]> {
 export type DataDirMetadata = {
   title?: string | null;
   description?: string | null;
+  tags?: string[];
 };
+
+/** Tags as stored: lowercased, deduplicated, each valid for the record. */
+function cleanTags(tags: string[]): string[] {
+  const cleaned = [
+    ...new Set(tags.map((t) => t.trim().toLowerCase().replace(/\s+/g, "-")).filter(Boolean)),
+  ];
+  const bad = cleaned.filter((t) => !tag.safeParse(t).success);
+  if (bad.length > 0) {
+    throw new DataDirError(
+      "invalid",
+      `Tags are lowercase words joined by dashes: ${bad.join(", ")}`,
+    );
+  }
+  if (cleaned.length > 20) throw new DataDirError("invalid", "At most 20 tags");
+  return cleaned;
+}
 
 export async function createDataDir(
   db: D1Database,
@@ -159,18 +184,22 @@ export async function createDataDir(
   return requireDataDir(db, slug);
 }
 
-/** Title and description: editable at any time. */
+/** Title, description and tags: editable at any time. */
 export async function updateMetadata(
   db: D1Database,
   slug: string,
   metadata: DataDirMetadata,
 ): Promise<DataDir> {
   const dir = await requireDataDir(db, slug);
+  const tags = metadata.tags === undefined ? dir.tags : cleanTags(metadata.tags);
   await db
-    .prepare("UPDATE data_dirs SET title = ?, description = ?, updated_at = ? WHERE slug = ?")
+    .prepare(
+      "UPDATE data_dirs SET title = ?, description = ?, tags = ?, updated_at = ? WHERE slug = ?",
+    )
     .bind(
       metadata.title === undefined ? dir.title : orNull(metadata.title),
       metadata.description === undefined ? dir.description : orNull(metadata.description),
+      tags.length > 0 ? JSON.stringify(tags) : null,
       now(),
       slug,
     )
@@ -208,12 +237,28 @@ export async function setReadme(
   return requireDataDir(db, slug);
 }
 
+export type FileProfile = {
+  format: string | null;
+  rows?: number | null;
+  schema?: { name: string; type: string }[] | null;
+};
+
 export type NewFile = {
   path: string;
   size: number;
   sha256: string;
   contentType?: string | null;
+  profile?: FileProfile;
 };
+
+function checkProfile(profile: FileProfile): void {
+  const ok = dataFile.pick({ format: true, rows: true, schema: true }).safeParse({
+    format: profile.format ?? undefined,
+    rows: profile.rows ?? undefined,
+    schema: profile.schema ?? undefined,
+  }).success;
+  if (!ok) throw new DataDirError("invalid", "That file profile isn't valid");
+}
 
 /** Record a data file (after it has been written to R2 and hashed). Replaces any file at that path. */
 export async function putFile(db: D1Database, slug: string, file: NewFile): Promise<DataDir> {
@@ -229,20 +274,70 @@ export async function putFile(db: D1Database, slug: string, file: NewFile): Prom
   if (!Number.isSafeInteger(file.size) || file.size < 0) {
     throw new DataDirError("invalid", "File size must be a non-negative integer");
   }
+  const profile = file.profile ?? { format: null };
+  checkProfile(profile);
   await requireDraft(db, slug, "files");
   const at = now();
   await db.batch([
     db
       .prepare(
-        `INSERT INTO data_dir_files (slug, path, size, sha256, content_type, uploaded_at)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO data_dir_files
+           (slug, path, size, sha256, content_type, uploaded_at, format, rows, schema)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (slug, path) DO UPDATE SET
            size = excluded.size,
            sha256 = excluded.sha256,
            content_type = excluded.content_type,
-           uploaded_at = excluded.uploaded_at`,
+           uploaded_at = excluded.uploaded_at,
+           format = excluded.format,
+           rows = excluded.rows,
+           schema = excluded.schema`,
       )
-      .bind(slug, file.path, file.size, file.sha256, file.contentType ?? null, at),
+      .bind(
+        slug,
+        file.path,
+        file.size,
+        file.sha256,
+        file.contentType ?? null,
+        at,
+        profile.format ?? null,
+        profile.rows ?? null,
+        profile.schema ? JSON.stringify(profile.schema) : null,
+      ),
+    db.prepare("UPDATE data_dirs SET updated_at = ? WHERE slug = ?").bind(at, slug),
+  ]);
+  return requireDataDir(db, slug);
+}
+
+/**
+ * Record what a file contains (measured in the owner's browser for CSV and
+ * JSON). Allowed while published: it describes the bytes without changing
+ * them, and the record is updated to carry it.
+ */
+export async function setFileProfile(
+  db: D1Database,
+  slug: string,
+  path: string,
+  profile: FileProfile,
+): Promise<DataDir> {
+  checkProfile(profile);
+  const dir = await requireDataDir(db, slug);
+  if (!dir.files.some((f) => f.path === path)) {
+    throw new DataDirError("not_found", `No file ${path} in "${slug}"`);
+  }
+  const at = now();
+  await db.batch([
+    db
+      .prepare(
+        "UPDATE data_dir_files SET format = ?, rows = ?, schema = ? WHERE slug = ? AND path = ?",
+      )
+      .bind(
+        profile.format ?? null,
+        profile.rows ?? null,
+        profile.schema ? JSON.stringify(profile.schema) : null,
+        slug,
+        path,
+      ),
     db.prepare("UPDATE data_dirs SET updated_at = ? WHERE slug = ?").bind(at, slug),
   ]);
   return requireDataDir(db, slug);

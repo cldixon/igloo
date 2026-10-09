@@ -29,6 +29,8 @@ export interface PublishedDataDir {
   publishedAt: string | null;
   /** sha256 by file path, as published in the record. */
   hashes: Record<string, string>;
+  /** Every data file in the data dir, with what's known about its contents. */
+  files: { path: string; format: string | null; rows: number | null }[];
 }
 
 export interface FileMetadata {
@@ -58,6 +60,11 @@ export type DataDirFile = {
   sha256: string;
   contentType: string | null;
   uploadedAt: string;
+  /** parquet, csv, tsv, json, jsonl, arrow, or null for other files. */
+  format: string | null;
+  /** Measured, when known. */
+  rows: number | null;
+  schema: { name: string; type: string }[] | null;
 };
 
 export type DataDir = {
@@ -66,6 +73,7 @@ export type DataDir = {
   description: string | null;
   license: string | null;
   readmeSha256: string | null;
+  tags: string[];
   status: DataDirStatus;
   recordUri: string | null;
   recordCid: string | null;

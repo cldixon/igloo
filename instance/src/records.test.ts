@@ -11,6 +11,7 @@ const draft: DataDir = {
   description: null,
   license: "CC-BY-4.0",
   readmeSha256: HASH,
+  tags: [],
   status: "draft",
   recordUri: null,
   recordCid: null,
@@ -24,6 +25,9 @@ const draft: DataDir = {
       sha256: HASH,
       contentType: "application/vnd.apache.parquet",
       uploadedAt: "2026-10-01T00:00:00.000Z",
+      format: null,
+      rows: null,
+      schema: null,
     },
   ],
 };
@@ -48,6 +52,31 @@ describe("buildDataDirRecord", () => {
         createdAt: "2026-10-02T18:12:00.000Z",
       },
     });
+  });
+
+  test("carries measured schema, rows, format and tags", () => {
+    const measured: DataDir = {
+      ...draft,
+      tags: ["web", "time-series"],
+      files: [
+        {
+          ...draft.files[0]!,
+          format: "parquet",
+          rows: 3,
+          schema: [{ name: "views", type: "BIGINT" }],
+        },
+      ],
+    };
+    const result = buildDataDirRecord(measured, "https://data.cldixon.dev");
+    expect(result.ok && result.value.files[0]).toEqual({
+      path: "a.parquet",
+      size: 10,
+      sha256: HASH,
+      format: "parquet",
+      rows: 3,
+      schema: [{ name: "views", type: "BIGINT" }],
+    });
+    expect(result.ok && result.value.tags).toEqual(["web", "time-series"]);
   });
 
   test("keeps createdAt from the first publish", () => {

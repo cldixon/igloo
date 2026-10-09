@@ -16,6 +16,7 @@
       "dependencies": {
         "@igloo/lexicon": "workspace:*",
         "@igloo/platform": "workspace:*",
+        "@igloo/query": "workspace:*",
         "hono": "^4.7.0",
       },
       "devDependencies": {
@@ -34,11 +35,13 @@
         "@modelcontextprotocol/sdk": "^1.27.1",
         "fetch-to-node": "^2.1.0",
         "hono": "^4.7.0",
+        "hyparquet": "1.31.3",
         "zod": "^4.3.6",
       },
       "devDependencies": {
         "@types/bun": "^1.2.0",
         "cf": "1.0.0-beta.14",
+        "hyparquet-writer": "0.16.11",
         "miniflare": "^4.20260730.0",
         "typescript": "^5.9.3",
         "wrangler": "^4.149.0",
@@ -48,6 +51,7 @@
       "name": "@igloo/instance-web",
       "version": "0.0.1",
       "dependencies": {
+        "@igloo/query": "workspace:*",
         "marked": "^15.0.0",
       },
       "devDependencies": {
@@ -85,6 +89,14 @@
         "@cloudflare/workers-types": "^5.20260908.1",
         "@types/bun": "^1.2.0",
         "miniflare": "^4.20260730.0",
+        "typescript": "^5.9.3",
+      },
+    },
+    "packages/query": {
+      "name": "@igloo/query",
+      "version": "0.1.0",
+      "devDependencies": {
+        "@types/bun": "^1.2.0",
         "typescript": "^5.9.3",
       },
     },
@@ -219,6 +231,8 @@
     "@igloo/lexicon": ["@igloo/lexicon@workspace:packages/lexicon"],
 
     "@igloo/platform": ["@igloo/platform@workspace:packages/platform"],
+
+    "@igloo/query": ["@igloo/query@workspace:packages/query"],
 
     "@img/colour": ["@img/colour@1.1.0", "", {}, "sha512-Td76q7j57o/tLVdgS746cYARfSyxk8iEfRxewL9h4OMzYhbW4TAcppl0mT4eyqXddh6L/jwoM75mo7ixa/pCeQ=="],
 
@@ -487,6 +501,10 @@
     "hono": ["hono@4.12.0", "", {}, "sha512-NekXntS5M94pUfiVZ8oXXK/kkri+5WpX2/Ik+LVsl+uvw+soj4roXIsPqO+XsWrAw20mOzaXOZf3Q7PfB9A/IA=="],
 
     "http-errors": ["http-errors@2.0.1", "", { "dependencies": { "depd": "~2.0.0", "inherits": "~2.0.4", "setprototypeof": "~1.2.0", "statuses": "~2.0.2", "toidentifier": "~1.0.1" } }, "sha512-4FbRdAX+bSdmo4AUFuS0WNiPz8NgFt+r8ThgNWmlrjQjt1Q7ZR9+zTlce2859x4KSXrwIsaeTqDoKQmtP8pLmQ=="],
+
+    "hyparquet": ["hyparquet@1.31.3", "", {}, "sha512-qThDJfCrTClFdaIQuQTtFOGp33bkbOyk+y1NrwcC8YZjvr5wxjNdKz7/PUF3xfNd7ZKLsYW+fY6N8dInjjMWJg=="],
+
+    "hyparquet-writer": ["hyparquet-writer@0.16.11", "", { "dependencies": { "hyparquet": "1.31.3" } }, "sha512-Q0hI/Cf0RC5PX0iV0L8k02HdnqyPBuYc0t5gq/h9HO9n8eZiu4y5Fq3/AStGKi3lLYCePTCqyrmEymGOlnm61A=="],
 
     "iconv-lite": ["iconv-lite@0.7.2", "", { "dependencies": { "safer-buffer": ">= 2.1.2 < 3.0.0" } }, "sha512-im9DjEDQ55s9fL4EYzOAv0yMqmMBSZp6G0VvFyTMPKWxiSBHUj9NW/qqLmXUwXrrM7AvqSlTCfvqRb0cM8yYqw=="],
 

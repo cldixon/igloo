@@ -1,5 +1,6 @@
 import { html, raw } from "hono/html";
 import type { HtmlEscapedString } from "hono/utils/html";
+import { DUCKDB_CDN, QUERY_PANEL_CSS, loadDuckDB, mountQueryPanel, queryFiles } from "@igloo/query";
 import type { IndexedDataDir, IndexedInstance, Maintainer } from "./db.js";
 
 /**
@@ -272,6 +273,7 @@ export function dataDirPage(
               <tr>
                 <th>Name</th>
                 <th>Size</th>
+                <th>Rows</th>
                 <th>sha256</th>
               </tr>
             </thead>
@@ -281,6 +283,7 @@ export function dataDirPage(
                   html`<tr>
                     <td><a href="${downloadUrl(d.instanceUrl, r.name, f.path)}">${f.path}</a></td>
                     <td class="num">${formatBytes(f.size)}</td>
+                    <td class="num">${f.rows != null ? f.rows.toLocaleString("en-US") : "-"}</td>
                     <td title="${f.sha256}">${f.sha256}</td>
                   </tr>`,
               )}
@@ -299,6 +302,14 @@ export function dataDirPage(
         <code>sha256sum &lt;file&gt;</code>.
       </p>
 
+      ${
+        r.tags?.length
+          ? html`<div class="meta">
+              ${r.tags.map((t) => html`<a class="chip" href="/search?q=${encodeURIComponent(`tag:${t}`)}">${t}</a>`)}
+            </div>`
+          : ""
+      }
+      ${schemaSection(r.files)} ${querySection(d)}
       ${
         r.readme
           ? html`<section class="panel">
@@ -320,6 +331,77 @@ Loading…</pre>
           : ""
       }`,
   );
+}
+
+function schemaSection(files: IndexedDataDir["record"]["files"]): Html {
+  const described = files.filter((f) => f.schema && f.schema.length > 0);
+  if (described.length === 0) return html``;
+  return html`<section class="panel">
+    <h2>Schema</h2>
+    <p class="muted" style="margin:0">Measured from the files themselves.</p>
+    ${described.map(
+      (f) =>
+        html`<details ${described.length === 1 ? "open" : ""}>
+          <summary>
+            <code>${f.path}</code>
+            <span class="muted"
+              >· ${f.format ?? ""} · ${f.schema!.length}
+              columns${f.rows != null ? ` · ${f.rows.toLocaleString("en-US")} rows` : ""}</span
+            >
+          </summary>
+          <div class="listing">
+            <table>
+              <tbody>
+                ${f.schema!.map(
+                (c) =>
+                  html`<tr>
+                    <td>
+                      <a href="/search?q=${encodeURIComponent(`col:${c.name}`)}">${c.name}</a>
+                    </td>
+                    <td class="muted">${c.type}</td>
+                  </tr>`,
+              )}
+              </tbody>
+            </table>
+          </div>
+        </details>`,
+    )}
+  </section>`;
+}
+
+/**
+ * JSON for a <script> block: escaping "<" means no value (a file path, say)
+ * can close the script element early.
+ */
+function scriptJson(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
+/** In-browser SQL over the data dir's files: DuckDB-WASM reading straight from the instance. */
+function querySection(d: IndexedDataDir): Html {
+  const files = queryFiles(d.record.files, (path) =>
+    downloadUrl(d.instanceUrl, d.record.name, path),
+  );
+  if (files.length === 0) return html``;
+  return html`<section class="panel">
+    <h2>Query</h2>
+    <div id="query"></div>
+    <style>
+      ${raw(QUERY_PANEL_CSS)}
+    </style>
+    <script type="module">
+      // Wrangler's bundler names functions through a __name helper; these
+      // functions are shipped as source, so give them a no-op one.
+      const __name = (f) => f;
+      const loadDuckDB = ${raw(loadDuckDB.toString())};
+      const mountQueryPanel = ${raw(mountQueryPanel.toString())};
+      mountQueryPanel(
+        document.getElementById("query"),
+        ${raw(scriptJson({ files, duckdb: DUCKDB_CDN }))},
+        loadDuckDB,
+      );
+    </script>
+  </section>`;
 }
 
 function dataDirList(items: IndexedDataDir[]): Html {

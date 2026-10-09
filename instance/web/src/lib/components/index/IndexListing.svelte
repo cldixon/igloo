@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { DirectoryListing } from "@igloo/shared";
   import ReadmeViewer from "$lib/components/ReadmeViewer.svelte";
+  import QueryPanel from "$lib/components/QueryPanel.svelte";
   import { formatBytes, formatDateFull, shortHash } from "$lib/utils";
   import { getDownloadUrl } from "$lib/api";
   import { config } from "$lib/theme";
@@ -100,6 +101,10 @@
 
   {#if listing.readme}
     <ReadmeViewer content={listing.readme} />
+  {/if}
+
+  {#if listing.dataDir && currentPath === `${listing.dataDir.slug}/`}
+    <QueryPanel slug={listing.dataDir.slug} files={listing.dataDir.files} />
   {/if}
 </div>
 

@@ -3,6 +3,7 @@
   import Breadcrumbs from "$lib/components/Breadcrumbs.svelte";
   import DirectoryEntry from "$lib/components/DirectoryEntry.svelte";
   import ReadmeViewer from "$lib/components/ReadmeViewer.svelte";
+  import QueryPanel from "$lib/components/QueryPanel.svelte";
   import PublishedBanner from "$lib/components/PublishedBanner.svelte";
 
   let { listing, currentPath }: { listing: DirectoryListing; currentPath: string } = $props();
@@ -40,6 +41,10 @@
 
   {#if listing.readme}
     <ReadmeViewer content={listing.readme} />
+  {/if}
+
+  {#if listing.dataDir && currentPath === `${listing.dataDir.slug}/`}
+    <QueryPanel slug={listing.dataDir.slug} files={listing.dataDir.files} />
   {/if}
 </div>
 

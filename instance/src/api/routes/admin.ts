@@ -14,11 +14,13 @@ import {
   putFile,
   removeFile,
   setLicense,
+  setFileProfile,
   setReadme,
   updateMetadata,
   type DataDir,
 } from "../../db/dataDirs.js";
 import { buildDataDirRecord } from "../../records.js";
+import { profileFile } from "../../admin/profile.js";
 import { contentTypeFor, hashObject, objectKey, sha256Text, sizedBody } from "../../admin/files.js";
 import {
   PdsError,
@@ -191,12 +193,13 @@ adminRoute.patch("/datadirs/:slug", async (c) => {
     title?: string | null;
     description?: string | null;
     license?: string | null;
+    tags?: string[];
   }>();
   let dir = await requireDir(c, slug);
   if (body.license !== undefined && (body.license ?? null) !== dir.license) {
     dir = await setLicense(c.var.db, slug, body.license);
   }
-  if (body.title !== undefined || body.description !== undefined) {
+  if (body.title !== undefined || body.description !== undefined || body.tags !== undefined) {
     dir = await updateMetadata(c.var.db, slug, body);
   }
   return c.json({ dataDir: await syncRecord(c, dir) });
@@ -212,13 +215,15 @@ adminRoute.delete("/datadirs/:slug", async (c) => {
 
 /** Hash an object that is already in R2 and add it to the data dir. */
 async function register(c: Ctx, slug: string, path: string): Promise<DataDir> {
-  const hashed = await hashObject(c.env.DATA, objectKey(slug, path));
+  const key = objectKey(slug, path);
+  const hashed = await hashObject(c.env.DATA, key);
   if (!hashed) throw new DataDirError("not_found", `No file at ${slug}/${path}`);
   return putFile(c.var.db, slug, {
     path,
     size: hashed.size,
     sha256: hashed.sha256,
     contentType: hashed.contentType,
+    profile: await profileFile(c.env.DATA, key, hashed.size),
   });
 }
 
@@ -246,6 +251,28 @@ adminRoute.post("/datadirs/:slug/files/register", async (c) => {
   let dir: DataDir | undefined;
   for (const path of paths ?? []) dir = await register(c, slug, requirePath(path));
   return c.json({ dataDir: dir ?? (await requireDir(c, slug)) });
+});
+
+/**
+ * Record a file's format, row count and schema, as measured by DuckDB in the
+ * owner's browser (CSV and JSON have no footer the server can read). Allowed
+ * while published: it describes the bytes without changing them.
+ */
+adminRoute.put("/datadirs/:slug/files/profile", async (c) => {
+  const slug = c.req.param("slug");
+  const body = await c.req.json<{
+    path?: string;
+    format?: string | null;
+    rows?: number | null;
+    schema?: { name: string; type: string }[] | null;
+  }>();
+  const path = requirePath(body.path);
+  const dir = await setFileProfile(c.var.db, slug, path, {
+    format: body.format ?? null,
+    rows: body.rows ?? null,
+    schema: body.schema ?? null,
+  });
+  return c.json({ dataDir: await syncRecord(c, dir) });
 });
 
 /** Remove a file from the data dir and delete it from the bucket. */

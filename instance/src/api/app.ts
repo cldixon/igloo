@@ -12,7 +12,15 @@ import type { Bindings } from "./bindings.js";
 const app = new Hono<{ Bindings: Bindings }>();
 
 // The web UI is same-origin now, but the CLI and MCP clients are not.
-app.use("/api/*", cors());
+app.use(
+  "/api/*",
+  cors({
+    origin: "*",
+    allowHeaders: ["Range", "Content-Type", "Authorization"],
+    // DuckDB and other range readers need these to see the file's size and parts.
+    exposeHeaders: ["Content-Range", "Content-Length", "Accept-Ranges", "ETag"],
+  }),
+);
 app.use("/mcp", cors());
 app.use("/health", cors());
 

@@ -47,6 +47,16 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX data_dirs_by_status ON data_dirs (status, updated_at)`,
     ],
   },
+  {
+    // Phase 2: what's in each file (measured), and tags on data dirs.
+    name: "0002_profiles_and_tags",
+    statements: [
+      `ALTER TABLE data_dir_files ADD COLUMN format TEXT`,
+      `ALTER TABLE data_dir_files ADD COLUMN rows INTEGER`,
+      `ALTER TABLE data_dir_files ADD COLUMN schema TEXT`,
+      `ALTER TABLE data_dirs ADD COLUMN tags TEXT`,
+    ],
+  },
 ];
 
 /** All migrations, in order. */

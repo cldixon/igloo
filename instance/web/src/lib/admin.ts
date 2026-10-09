@@ -66,8 +66,22 @@ export const admin = {
   get: (slug: string) => request<DataDirDetail>("GET", dir(slug)),
   update: (
     slug: string,
-    fields: { title?: string | null; description?: string | null; license?: string | null },
+    fields: {
+      title?: string | null;
+      description?: string | null;
+      license?: string | null;
+      tags?: string[];
+    },
   ) => request<One>("PATCH", dir(slug), fields),
+  setProfile: (
+    slug: string,
+    profile: {
+      path: string;
+      format: string;
+      rows: number;
+      schema: { name: string; type: string }[];
+    },
+  ) => request<One>("PUT", `${dir(slug)}/files/profile`, profile),
   remove: (slug: string) => request("DELETE", dir(slug)),
   register: (slug: string, paths: string[]) =>
     request<One>("POST", `${dir(slug)}/files/register`, { paths }),

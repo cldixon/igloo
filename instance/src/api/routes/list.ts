@@ -24,6 +24,7 @@ function published(dir: DataDir | null, appview: string): PublishedDataDir | nul
     feedUrl: appViewDataDirUrl(appview, dir.recordUri),
     publishedAt: dir.publishedAt,
     hashes: Object.fromEntries(dir.files.map((f) => [f.path, f.sha256])),
+    files: dir.files.map(({ path, format, rows }) => ({ path, format, rows })),
   };
 }
 

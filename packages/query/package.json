@@ -1,0 +1,20 @@
+{
+  "name": "@igloo/query",
+  "version": "0.1.0",
+  "description": "In-browser SQL over data dir files with DuckDB-WASM, shared by the AppView and instances",
+  "type": "module",
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./types.d.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.9.3"
+  }
+}

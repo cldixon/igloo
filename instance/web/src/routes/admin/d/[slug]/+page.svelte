@@ -4,6 +4,7 @@
   import type { DataDir } from "@igloo/shared";
   import { admin, auth, feedUrl, LICENSES, uploadFile, type DataDirDetail } from "$lib/admin";
   import { formatBytes, shortHash } from "$lib/utils";
+  import { DUCKDB_CDN, loadDuckDB, measureFile } from "@igloo/query";
 
   const slug = page.params.slug as string;
 
@@ -16,6 +17,7 @@
   let title = $state("");
   let description = $state("");
   let license = $state("");
+  let tags = $state("");
   let readme = $state("");
 
   let subfolder = $state("");
@@ -40,6 +42,7 @@
     title = d.dataDir.title ?? "";
     description = d.dataDir.description ?? "";
     license = d.dataDir.license ?? "";
+    tags = d.dataDir.tags.join(", ");
     readme = d.readme ?? "";
   }
 
@@ -67,9 +70,18 @@
   const saveDetails = () =>
     run(
       async () => {
-        const fields: { title: string; description: string; license?: string } = {
+        const fields: {
+          title: string;
+          description: string;
+          license?: string;
+          tags: string[];
+        } = {
           title,
           description,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
         };
         if (!published) fields.license = license;
         await refresh((await admin.update(slug, fields)).dataDir);
@@ -101,6 +113,15 @@
     if (!confirm(`Delete ${path}? It is removed from the bucket too.`)) return;
     return run(async () => refresh((await admin.deleteFile(slug, path)).dataDir));
   };
+
+  /** Measure a CSV or JSON file with DuckDB in this browser, and save it as the file's schema. */
+  const measure = (path: string, format: string) =>
+    run(async () => {
+      const db = await loadDuckDB(DUCKDB_CDN);
+      const url = `${location.origin}/api/download?path=${encodeURIComponent(`${slug}/${path}`)}`;
+      const { rows, schema } = await measureFile(db, url, format);
+      await refresh((await admin.setProfile(slug, { path, format, rows, schema })).dataDir);
+    }, `Measured ${path}.`);
 
   const register = (paths: string[]) =>
     run(async () => refresh((await admin.register(slug, paths)).dataDir), "Added and hashed.");
@@ -182,6 +203,7 @@
       <h2>Details</h2>
       <label>Title <input bind:value={title} maxlength="200" /></label>
       <label>Description <input bind:value={description} maxlength="3000" /></label>
+      <label>Tags <input bind:value={tags} placeholder="hydrology, time-series" /></label>
       <label>
         License
         <input
@@ -210,12 +232,33 @@
       {#if dir.files.length > 0}
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Path</th><th>Size</th><th>sha256</th><th></th></tr></thead>
+            <thead
+              ><tr
+                ><th>Path</th><th>Size</th><th>Format</th><th>Rows</th><th>Columns</th><th
+                  >sha256</th
+                ><th></th></tr
+              ></thead
+            >
             <tbody>
               {#each dir.files as f (f.path)}
                 <tr>
                   <td class="mono">{f.path}</td>
                   <td>{formatBytes(f.size)}</td>
+                  <td class="mono">{f.format ?? ""}</td>
+                  <td>{f.rows != null ? f.rows.toLocaleString() : ""}</td>
+                  <td>
+                    {#if f.schema}
+                      <span
+                        class="mono"
+                        title={f.schema.map((c) => `${c.name} ${c.type}`).join("\n")}
+                        >{f.schema.length}</span
+                      >
+                    {:else if f.format && ["csv", "tsv", "json", "jsonl"].includes(f.format)}
+                      <button onclick={() => measure(f.path, f.format!)} disabled={busy}
+                        >Measure</button
+                      >
+                    {/if}
+                  </td>
                   <td class="mono" title={f.sha256}>{shortHash(f.sha256)}</td>
                   <td style="text-align: right">
                     {#if !published}

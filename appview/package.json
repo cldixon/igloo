@@ -14,6 +14,7 @@
   "dependencies": {
     "@igloo/lexicon": "workspace:*",
     "@igloo/platform": "workspace:*",
+    "@igloo/query": "workspace:*",
     "hono": "^4.7.0"
   },
   "devDependencies": {

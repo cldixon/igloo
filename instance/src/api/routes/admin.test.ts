@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "b
 import { NSID, validateDataDir } from "@igloo/lexicon";
 import { createWebSession } from "@igloo/platform";
 import { createTestBindings } from "@igloo/platform/testing";
+import { parquetWriteBuffer } from "hyparquet-writer";
 
 const OWNER = "did:plc:owner00000000000000000000";
 const ORIGIN = "https://data.example.com";
@@ -247,6 +248,78 @@ describe("publishing", () => {
     expect(notified.at(-1)).toBe(`at://${OWNER}/${NSID.dataDir}/wiki`);
     expect((await call("DELETE", "/datadirs/wiki/files?path=data.csv")).status).toBe(200);
     expect(await bucket.get("wiki/data.csv")).toBeNull();
+  });
+});
+
+describe("schema and tags (phase 2)", () => {
+  test("an uploaded Parquet file is profiled from its footer, and the record carries it", async () => {
+    const parquet = new Uint8Array(
+      parquetWriteBuffer({
+        columnData: [
+          { name: "date", data: ["2026-01-01", "2026-01-02"], type: "STRING" },
+          { name: "views", data: [10n, 20n], type: "INT64" },
+        ],
+      }),
+    );
+    await call("POST", "/datadirs", { slug: "views" });
+    const { body } = await call("PUT", "/datadirs/views/files?path=views.parquet", parquet);
+    expect(body.dataDir.files[0]).toMatchObject({
+      format: "parquet",
+      rows: 2,
+      schema: [
+        { name: "date", type: "VARCHAR" },
+        { name: "views", type: "BIGINT" },
+      ],
+    });
+    await call("POST", "/datadirs/views/publish");
+    expect((pdsCalls.at(-1)!.input.record as any).files[0]).toMatchObject({
+      format: "parquet",
+      rows: 2,
+      schema: [
+        { name: "date", type: "VARCHAR" },
+        { name: "views", type: "BIGINT" },
+      ],
+    });
+  });
+
+  test("a browser-measured CSV profile can be added while published, updating the record", async () => {
+    await wikiWithFile();
+    await call("POST", "/datadirs/wiki/publish");
+    const schema = [
+      { name: "a", type: "BIGINT" },
+      { name: "b", type: "BIGINT" },
+    ];
+    const { status, body } = await call("PUT", "/datadirs/wiki/files/profile", {
+      path: "data.csv",
+      format: "csv",
+      rows: 1,
+      schema,
+    });
+    expect(status).toBe(200);
+    expect(body.dataDir.files[0]).toMatchObject({ format: "csv", rows: 1, schema });
+    expect((pdsCalls.at(-1)!.input.record as any).files[0]).toMatchObject({ rows: 1, schema });
+  });
+
+  test("profiles are validated", async () => {
+    await wikiWithFile();
+    const bad = await call("PUT", "/datadirs/wiki/files/profile", { path: "data.csv", rows: -5 });
+    expect(bad.status).toBe(400);
+    const missing = await call("PUT", "/datadirs/wiki/files/profile", {
+      path: "nope.csv",
+      rows: 1,
+    });
+    expect(missing.status).toBe(404);
+  });
+
+  test("tags are cleaned, validated, and published", async () => {
+    await wikiWithFile();
+    const { body } = await call("PATCH", "/datadirs/wiki", {
+      tags: ["Web", " time series ", "web"],
+    });
+    expect(body.dataDir.tags).toEqual(["web", "time-series"]);
+    expect((await call("PATCH", "/datadirs/wiki", { tags: ["no_underscores"] })).status).toBe(400);
+    await call("POST", "/datadirs/wiki/publish");
+    expect((pdsCalls.at(-1)!.input.record as any).tags).toEqual(["web", "time-series"]);
   });
 });
 

@@ -40,12 +40,31 @@ export const instanceUrl = z.url().refine((value) => {
   return bare && (url.protocol === "https:" || (local && url.protocol === "http:"));
 }, "expected an https origin with no path");
 
+/** File formats igloo knows how to describe and query. Others are just files. */
+export const FILE_FORMATS = ["parquet", "csv", "tsv", "json", "jsonl", "arrow"] as const;
+
+/** One column, as measured (never guessed): its name and DuckDB type, e.g. BIGINT. */
+export const column = z.object({
+  name: z.string().min(1).max(256),
+  type: z.string().min(1).max(128),
+});
+
 export const dataFile = z.object({
   path: relativePath,
   /** Bytes. */
   size: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   sha256: sha256Hex,
+  // Phase 2, all optional: what's in the file, measured from the file itself.
+  format: z.string().min(1).max(32).optional(),
+  rows: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
+  schema: z.array(column).max(2000).optional(),
 });
+
+/** A tag: lowercase words joined by dashes, e.g. time-series. */
+export const tag = z
+  .string()
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected a lowercase tag")
+  .max(40);
 
 export const readmeRef = z.object({
   path: relativePath,
@@ -65,6 +84,7 @@ export const dataDirRecord = z
     /** SPDX identifier where one exists, e.g. CC-BY-4.0. */
     license: z.string().min(1).max(100).optional(),
     readme: readmeRef.optional(),
+    tags: z.array(tag).max(20).optional(),
   })
   .superRefine((record, ctx) => {
     const paths = new Set<string>();
@@ -103,6 +123,7 @@ export const notifyRecordInput = z.object({
 });
 
 export type DataFile = z.infer<typeof dataFile>;
+export type Column = z.infer<typeof column>;
 export type DataDirRecord = z.infer<typeof dataDirRecord>;
 export type InstanceRecord = z.infer<typeof instanceRecord>;
 export type NotifyRecordInput = z.infer<typeof notifyRecordInput>;
