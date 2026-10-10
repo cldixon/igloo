@@ -35,11 +35,13 @@ jobs:
       - name: Test
         run: bun test
 
-      - name: Build instance UI
-        run: bun run --cwd instance build
+      # Builds the UI and the published packages, so a release can't be the
+      # first time packing runs.
+      - name: Pack instance and create-igloo
+        run: bun run --cwd instance pack
 
       # Runs last: the instance config points at web/build, so the assets have
-      # to exist before cf will resolve it.
+      # to exist before cf will resolve it (pack built them).
       # The instance's own config is each owner's and not in the repo; the
       # example stands in for it.
       - name: Validate Workers config

@@ -12,3 +12,6 @@ instance/web/build/
 
 # Go, handled by gofmt
 cli/
+
+# Packed releases
+instance/dist/

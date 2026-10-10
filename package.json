@@ -15,7 +15,7 @@
     "format:check": "prettier --check .",
     "typecheck": "bun run --filter '*' typecheck",
     "test": "bun test",
-    "check": "bun run format:check && bun run typecheck && bun run --cwd instance check && bun run test && bun run --cwd instance build && bun run --filter '*' deploy:dry"
+    "check": "bun run format:check && bun run typecheck && bun run --cwd instance check && bun run test && bun run --cwd instance pack && IGLOO_CONFIG=igloo.config.example.json bun run --filter '*' deploy:dry"
   },
   "devDependencies": {
     "prettier": "^3.9.6",

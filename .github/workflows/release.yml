@@ -1,0 +1,59 @@
+name: Release
+
+# Push a tag matching instance/package.json's version (e.g. v0.1.0) to release
+# @igloo-data/instance and create-igloo. Owners' deploy folders depend on
+# these; nothing here deploys anything.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    env:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - run: bun install --frozen-lockfile
+
+      - name: Check the tag matches the version
+        run: |
+          version="v$(jq -r .version instance/package.json)"
+          if [ "$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match instance/package.json ($version)"
+            exit 1
+          fi
+
+      - run: bun test
+
+      - name: Pack
+        run: bun run --cwd instance pack
+
+      # Skipped until the NPM_TOKEN secret exists (a granular npm token with
+      # publish rights on @igloo-data/instance and create-igloo).
+      - name: Publish to npm
+        if: env.NPM_TOKEN != ''
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm publish instance/dist/igloo-data-instance-*.tgz --access public
+          npm publish instance/dist/create-igloo-*.tgz --access public
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" instance/dist/*.tgz --generate-notes

@@ -103,17 +103,29 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   `cf cli search "<what you want to do>"` (keep queries generic: no names,
   domains, IDs or tokens), then `<command> --help`. Don't explore by chaining
   `--help` calls.
-- **No owner-specific values in the repo.** The instance is software anyone
-  deploys; each owner's settings (Worker name, bucket, domain, title) live in
-  a gitignored `instance/igloo.config.json` written by `bun run setup`, with
-  `IGLOO_*` environment overrides for Workers Builds (`instance/config.ts`).
-  A deploy with neither fails rather than using defaults. `IGLOO_CONFIG` picks
-  another file (demo instances; CI uses `igloo.config.example.json`). The
-  AppView is the network's own service, so its config is committed.
+- **The instance is released software; this repo doesn't deploy one.**
+  `bun run --cwd instance pack` builds `@igloo-data/instance` (prebuilt
+  Worker bundle from `cf build`, built UI, `defineIgloo` from
+  `instance/config.ts`, the `igloo` CLI from `instance/cli/igloo.ts`, plus
+  `instance/package/` templates) and `create-igloo`
+  (`packages/create-igloo`), both at `instance/package.json`'s version.
+  `.github/workflows/release.yml` publishes them on a `v*` tag. Owners run
+  `bun create igloo`, which makes a deploy folder holding their
+  `igloo.config.json`; the reference instance's is `cldixon/cldixon-igloo`.
+  Keep `defineIgloo` the single place the instance's cf config is built:
+  the repo's `instance/cloudflare.config.ts` uses it too, with the source
+  entrypoint.
+- **No owner-specific values in this repo.** For development,
+  `instance/igloo.config.json` is gitignored; `IGLOO_*` variables override
+  it and `IGLOO_CONFIG` picks another file (CI uses
+  `igloo.config.example.json`). A deploy with neither fails rather than use
+  defaults. cf evaluates the config for every command in a folder, so
+  `igloo setup` sets `IGLOO_SETUP` to allow defaults before the file exists.
+  The AppView is the network's own service, so its config is committed.
 - **No instance previews** (`previewUrls: false`): previews share production
   bindings and migrations apply themselves, so a preview could migrate the
   real database. The AppView gets none either (it has a Durable Object).
-  Deploys are Workers Builds' job; GitHub Actions only runs checks.
+  Deploys are Workers Builds' job; GitHub Actions runs checks and releases.
 - Each Worker is configured in its own `cloudflare.config.ts` (`cf/config`).
   The instance also has a small `wrangler.config.ts` for the assets
   directory, because cf still bundles through Wrangler. `cf workers types`
@@ -160,8 +172,10 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   - `src/records.ts`: data dir → validated `dataDir` record.
   - `src/shared/`: types shared with the UI.
   - `web/`: SvelteKit SPA (`@igloo/instance-web`); `/admin` is the admin panel.
-  - `scripts/`: `setup.ts` (config, bucket, CORS), `secrets.ts` (setup code
-    and OAuth key as Worker secrets), `dev.ts`.
+  - `config.ts`: owner settings and `defineIgloo` (the Worker's cf config).
+  - `cli/igloo.ts`: the `igloo` CLI (`setup`, `deploy`, `secrets`, `dev`).
+  - `scripts/`: `pack.ts` (both published packages), `dev.ts` (Worker plus
+    Vite). `package/`: files copied into `@igloo-data/instance`.
 - `appview/`: the AppView Worker (`@igloo/appview`), at `igloo.cldixon.dev`.
   - `src/index.ts`: routes, `notifyRecord`, operator `/admin/*` (needs the
     `ADMIN_TOKEN` secret), queue and cron handlers.
@@ -181,6 +195,7 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   migrations, settings, DID resolution, XRPC, OAuth (D1 stores, refresh
   lock, loopback client in dev), browser sessions. `./testing` has real
   local D1/R2 bindings for tests.
+- `packages/create-igloo/`: `bun create igloo`, the owner's scaffolder.
 - `cli/`: Go CLI. `skills/igloo/`: agent skill.
 
 ## Local development notes

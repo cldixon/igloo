@@ -5,15 +5,16 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "setup": "bun scripts/setup.ts",
-    "secrets": "bun scripts/secrets.ts",
+    "setup": "bun cli/igloo.ts setup",
+    "secrets": "bun cli/igloo.ts secrets",
     "dev": "bun scripts/dev.ts",
     "build": "cd web && bun --bun vite build",
-    "deploy": "bun run build && cf deploy",
+    "deploy": "bun run build && bun cli/igloo.ts deploy",
     "deploy:dry": "cf deploy --dry-run",
     "types": "cf workers types",
     "typecheck": "cf workers types && tsc --noEmit",
-    "check": "cd web && bun run check"
+    "check": "cd web && bun run check",
+    "pack": "bun scripts/pack.ts"
   },
   "dependencies": {
     "@igloo/lexicon": "workspace:*",

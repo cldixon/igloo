@@ -12,9 +12,7 @@ igloo is three parts:
 
 The full design is in the [igloo Network Design](https://claude.ai/artifact/HMW8j1kyFnSLYmxThUVDPz) handoff. This is **phase 1**, an end-to-end prototype: records use the `dev.cldixon.igloo.*` namespace and the AppView runs at `igloo.cldixon.dev`. Both move to `social.igloo.*` / `igloo.social` at the end of the phase.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cldixon/igloo/tree/main/instance)
-
-The button deploys an instance into your account. To set one up by hand, follow the Quick Start below. [docs/runbook.md](docs/runbook.md) covers deploying the AppView and testing the whole network.
+Run your own instance with one command (below). [docs/runbook.md](docs/runbook.md) covers deploying the AppView and testing the whole network.
 
 ## Architecture
 
@@ -34,92 +32,45 @@ The button deploys an instance into your account. To set one up by hand, follow 
 
 The repo is a Bun workspace:
 
-| Path                | What                                                                                       |
-| ------------------- | ------------------------------------------------------------------------------------------ |
-| `instance/`         | The instance Worker and its SvelteKit UI (`instance/web`)                                  |
-| `appview/`          | The AppView Worker                                                                         |
-| `packages/lexicon`  | Record schemas, validation and NSIDs, shared by both                                       |
-| `packages/platform` | Shared Worker plumbing: D1 migrations, AT Protocol identity, XRPC, OAuth, browser sessions |
-| `cli/`              | Go CLI                                                                                     |
-| `skills/igloo/`     | Agent skill                                                                                |
+| Path                    | What                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| `instance/`             | The instance Worker and its SvelteKit UI (`instance/web`)                                  |
+| `appview/`              | The AppView Worker                                                                         |
+| `packages/lexicon`      | Record schemas, validation and NSIDs, shared by both                                       |
+| `packages/platform`     | Shared Worker plumbing: D1 migrations, AT Protocol identity, XRPC, OAuth, browser sessions |
+| `packages/query`        | DuckDB-WASM loader and query panel, shared by both UIs                                     |
+| `packages/create-igloo` | `bun create igloo`: scaffolds an owner's deploy folder                                     |
+| `cli/`                  | Go CLI                                                                                     |
+| `skills/igloo/`         | Agent skill                                                                                |
 
-## Quick Start
+## Run your own igloo
 
-### Prerequisites
-
-- [Bun](https://bun.sh)
-- A [Cloudflare](https://cloudflare.com) account
-- [Go](https://go.dev) 1.23+ (only if you want to build the CLI)
-
-### 1. Clone and install
+You need [Bun](https://bun.sh) and a [Cloudflare](https://cloudflare.com) account (the free plan works).
 
 ```bash
-git clone https://github.com/cldixon/igloo.git
-cd igloo
-bun install
-cd instance
+bun create igloo my-igloo
 ```
 
-The repo is a Bun workspace. The instance Worker and its UI live in `instance/`; the commands below run from there.
+That makes a `my-igloo` folder and walks you through the rest:
 
-### 2. Authenticate and provision
-
-```bash
-bunx cf auth login
-bun run setup
-```
-
-`bun run setup` asks for your Worker name, bucket name, site title and domain. It creates the R2 bucket if it doesn't exist, sets CORS on it, and writes your answers to `igloo.config.json`. That file is your instance's only configuration; git ignores it, so pulling new igloo versions never conflicts with it. Keep it (or its values) somewhere safe: every deploy reads it. Re-running `setup` offers your current answers as defaults. The D1 database (named after the Worker) is created by the first deploy, and its schema migrates itself.
-
-### 3. Run locally
-
-```bash
-bun run dev
-```
-
-This starts `cf dev` on port 8787 (the Worker, bound to your real R2 bucket) and Vite on port 5173 (the UI, with HMR). Open http://localhost:5173.
-
-Pass `--local` to use a simulated R2 instead of the live bucket:
-
-```bash
-bun run dev --local
-```
-
-### 4. Deploy and claim
-
-```bash
-bun run deploy
-bun run secrets
-```
-
-`bun run deploy` builds the web UI and deploys the Worker. `bun run secrets` sets two secrets on it and prints the setup code:
-
-- `SETUP_CODE`: the one-time code that claims the instance.
-- `OAUTH_SIGNING_KEY`: the key the instance signs its OAuth requests with.
-
-Both are optional. Without them the instance generates its own on first use, keeps them in D1, and writes the setup code to the Worker's logs.
+1. Signs you in to Cloudflare, if you aren't already (`cf auth login` opens a browser).
+2. Asks for your instance's settings: Worker name, R2 bucket, site title and an optional custom domain (on a zone in your Cloudflare account). It creates the bucket, sets its CORS rules, and writes your answers to `igloo.config.json`.
+3. Deploys. The first deploy creates the D1 database, and prints a **setup code**.
 
 Then open `/admin` on your instance and sign in with your AT Protocol handle (Bluesky or any PDS) and the setup code. That account becomes the owner; the code stops working, and from then on only the owner can sign in. The instance asks your PDS only for write access to igloo records.
 
-The custom domain must be on a zone in your own Cloudflare account, or the deploy will fail. Answer the domain prompt with a blank line to serve from `*.workers.dev` instead: with a domain, the custom domain is the only way in; without one, `workers.dev` is turned on so the Worker still has a route.
+The folder is your instance: your settings plus a dependency on [`@igloo-data/instance`](https://www.npmjs.com/package/@igloo-data/instance), which ships the prebuilt Worker and UI. Make it a git repo and keep it. In it:
 
-To update later, pull the new version and run `bun run deploy` again. Migrations apply themselves on first request.
+| Command                                             | What it does                                                          |
+| --------------------------------------------------- | --------------------------------------------------------------------- |
+| `bun run setup`                                     | Change the settings (re-run any time)                                 |
+| `bun run deploy`                                    | Deploy                                                                |
+| `bun run dev`                                       | Run locally on http://127.0.0.1:8787 (`-- --local`: simulated bucket) |
+| `bun update @igloo-data/instance && bun run deploy` | Update igloo. Migrations apply themselves                             |
 
-## Continuous Deployment
+**Deploy on push (optional).** Push the folder to GitHub, then in the Cloudflare dashboard open the Worker → **Settings** → **Build**, connect the repo, and set the build command to `bun install` and the deploy command to `bun run deploy`. Leave non-production branch builds off. There's nothing else to set, since the settings are in the repo.
 
-GitHub Actions (`.github/workflows/ci.yml`) runs every quality check on pull requests and on `main`: format, type check, `svelte-check`, tests, build, and `cf deploy --dry-run` against `instance/igloo.config.example.json`. Deploying is [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/)' job, so builds use Cloudflare's minutes rather than GitHub's.
-
-To deploy your instance on every push to `main`, connect your Worker in the Cloudflare dashboard (**Settings** → **Build**):
-
-1. Connect your GitHub repository (your fork, or the repo you deploy from).
-2. Root directory: `instance`.
-3. Build command: `bun install && bun run build`. Deploy command: `bunx cf deploy`.
-4. **Build variables:** your `igloo.config.json` isn't in the repo, so give the build its values instead: `IGLOO_BUCKET` and, if you have them, `IGLOO_DOMAIN`, `IGLOO_WORKER` (default `igloo`), `IGLOO_TITLE`, `IGLOO_TAGLINE`. A build with neither the file nor `IGLOO_BUCKET` fails rather than deploying defaults.
-5. Leave **non-production branch builds** off.
-
-The instance has no preview deployments (`previewUrls: false`). Preview versions share production's bucket and database, and migrations apply themselves on first request, so a preview of a branch with a new migration would change the real database before the branch merged. Try changes locally with `bun run dev --local`.
-
-The AppView is connected the same way with root directory `appview`, build command `bun install`, deploy command `bunx cf deploy`, and non-production branch builds off. Workers with Durable Objects get no preview URLs, and it has one (`JetstreamDO`).
+The instance has no preview deployments (`previewUrls: false`). Preview versions share production's bucket and database, and migrations apply themselves on first request, so a preview with a new migration would change the real database. Try changes with `bun run dev -- --local`.
 
 ## Adding Data
 
@@ -140,7 +91,7 @@ rclone copy ./my-dataset r2:my-bucket/my-dataset
 
 ## Configuration
 
-Each instance's settings live in `instance/igloo.config.json` (written by `bun run setup`, ignored by git). An environment variable overrides each one, for CI and Workers Builds:
+Each instance's settings live in its `igloo.config.json` (written by `bun run setup`). An environment variable overrides each one:
 
 | Key        | Environment         | Description                                                        |
 | ---------- | ------------------- | ------------------------------------------------------------------ |
@@ -153,9 +104,9 @@ Each instance's settings live in `instance/igloo.config.json` (written by `bun r
 | `theme`    | `IGLOO_THEME`       | Default visual theme (`repo` or `index`)                           |
 | `appview`  | `IGLOO_APPVIEW_URL` | The AppView to notify after publishing (default the network's own) |
 
-`IGLOO_CONFIG` points at a different file. `instance/cloudflare.config.ts` turns these into the Worker's config and holds nothing specific to one instance.
+`IGLOO_CONFIG` points at a different file. `defineIgloo()` (from `@igloo-data/instance/config`, or `instance/config.ts` here) turns these into the Worker's config. A deploy with neither a config file nor `IGLOO_BUCKET` fails rather than deploying defaults.
 
-The R2 and D1 bindings authenticate through your Cloudflare account. The only secrets are the optional `SETUP_CODE` and `OAUTH_SIGNING_KEY` (see [Deploy and claim](#4-deploy-and-claim)).
+The R2 and D1 bindings authenticate through your Cloudflare account. The only secrets are `SETUP_CODE` and `OAUTH_SIGNING_KEY`, which the first deploy sets. `bun run secrets` replaces them, but only do that before you claim the instance: a new OAuth key signs the owner out.
 
 ## API
 
@@ -229,6 +180,29 @@ Users can override the theme and color mode in-browser via the settings menu —
 | Web UI    | [SvelteKit](https://svelte.dev) + Svelte 5 (SPA, served via Workers Static Assets)         |
 | CLI       | [Go](https://go.dev) + [Cobra](https://github.com/spf13/cobra) + [Charm](https://charm.sh) |
 | Tooling   | [Bun](https://bun.sh) + [cf](https://www.npmjs.com/package/cf), the Cloudflare CLI         |
+
+## Developing igloo
+
+This repo is the source. Owners don't deploy from it; they use `bun create igloo`.
+
+```bash
+git clone https://github.com/cldixon/igloo.git && cd igloo
+bun install
+bun run check                          # everything CI runs
+cd instance && bun run dev --local     # the instance on :8787 and its UI on :5173, simulated bucket
+```
+
+To run a development instance against real resources, `bun run setup` in `instance/` writes a gitignored `instance/igloo.config.json`, and `bun run deploy` there builds from source. CI (`.github/workflows/ci.yml`) runs the checks on pull requests and on `main`. The AppView deploys from `main` through Workers Builds (root directory `appview`, build `bun install`, deploy `bunx cf deploy`, non-production builds off).
+
+### Releasing
+
+`bun run --cwd instance pack` builds both packages into `instance/dist/`: `@igloo-data/instance` (the prebuilt Worker bundle, the UI, `defineIgloo` and the `igloo` CLI) and `create-igloo`. They share `instance/package.json`'s version. To release, bump that version, merge, and push a matching tag:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+`.github/workflows/release.yml` packs, publishes both to npm (once the `NPM_TOKEN` secret exists), and attaches the tarballs to a GitHub release.
 
 ## License
 

@@ -50,14 +50,14 @@ For deploys on push, connect the `igloo-appview` Worker to the repo in Workers B
 
 ## 2. Deploy the reference instance (data.cldixon.dev)
 
-Its settings are in `instance/igloo.config.json`, which isn't in the repo: keep a copy, or recreate it with `bun run setup` (worker `igloo`, bucket `data-repo`, domain `data.cldixon.dev`). For Workers Builds, set the build variables `IGLOO_BUCKET=data-repo` and `IGLOO_DOMAIN=data.cldixon.dev` on the `igloo` Worker, and turn its non-production branch builds off. To deploy by hand:
+It deploys from its own repo, [`cldixon/cldixon-igloo`](https://github.com/cldixon/cldixon-igloo): `igloo.config.json` (worker `igloo`, bucket `data-repo`, domain `data.cldixon.dev`) plus a dependency on `@igloo-data/instance`. From a checkout of it:
 
 ```bash
-cd instance
-bunx cf r2 buckets cors update data-repo --force --rules '[{"allowed":{"origins":["*"],"methods":["GET","HEAD"],"headers":["Range"]},"exposeHeaders":["Content-Range","Content-Length","ETag"],"maxAgeSeconds":3600}]'
-bun run deploy
-bun run secrets        # prints the setup code
+bun install
+bun run deploy         # the first deploy of a new Worker also prints the setup code
 ```
+
+For deploy on push, connect the `igloo` Worker to `cldixon/cldixon-igloo` in Workers Builds: build `bun install`, deploy `bun run deploy`, non-production branch builds off, no build variables. Disconnect it from `cldixon/igloo`.
 
 Open <https://data.cldixon.dev/admin>, sign in with test account 1 and the setup code. Then, in the admin panel:
 
@@ -67,15 +67,10 @@ Open <https://data.cldixon.dev/admin>, sign in with test account 1 and the setup
 
 ## 3. Deploy two more instances
 
-Each instance needs its own Worker, bucket, database and domain. Give each its own config file; `IGLOO_CONFIG` picks which one a command uses:
+Each instance needs its own Worker, bucket, database and domain, so each gets its own folder:
 
 ```bash
-cd instance
-export IGLOO_CONFIG=igloo-2.config.json
-bun run setup     # worker igloo-2, bucket igloo-2, domain igloo-2.cldixon.dev
-bun run deploy
-bun run secrets
-unset IGLOO_CONFIG
+bun create igloo igloo-2    # worker igloo-2, bucket igloo-2, domain igloo-2.cldixon.dev
 ```
 
 Repeat with `igloo-3`. Claim each with a different test account, then publish a data dir from each.
