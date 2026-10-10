@@ -18,6 +18,16 @@ import { clearSessionCookie, originOf, sessionToken, setSessionCookie } from "..
 
 type AppState = { claim?: boolean };
 
+/** An error and its causes, one per line: OAuth failures wrap the real reason. */
+function describeError(error: unknown): string {
+  const lines: string[] = [];
+  for (let e: unknown = error, depth = 0; e && depth < 6; depth++) {
+    lines.push(e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+    e = e instanceof Error ? e.cause : undefined;
+  }
+  return lines.join("\n  caused by ");
+}
+
 function client(c: { env: Bindings; req: { url: string } }, db: D1Database) {
   return getOAuthClient(db, new URL(c.req.url).origin, {
     title: c.env.IGLOO_TITLE,
@@ -52,7 +62,7 @@ oauthRoute.get("/callback", async (c) => {
     did = session.did;
     appState = state ? (JSON.parse(state) as AppState) : {};
   } catch (error) {
-    console.error("OAuth callback failed", error);
+    console.error("OAuth callback failed", describeError(error));
     return fail("sign_in_failed");
   }
 
@@ -105,7 +115,7 @@ authRoute.post("/login", async (c) => {
     const url = await oauth.authorize(handle, { state: JSON.stringify(appState) });
     return c.json({ url: url.toString() });
   } catch (error) {
-    console.error("OAuth authorize failed", error);
+    console.error("OAuth authorize failed", describeError(error));
     return c.json({ error: `Couldn't start sign-in for ${handle}` }, 400);
   }
 });

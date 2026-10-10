@@ -17,7 +17,11 @@ import {
   type SessionStore,
   type StateStore,
 } from "@atproto/oauth-client";
-import { AtprotoDohHandleResolver } from "@atproto-labs/handle-resolver";
+import {
+  AtprotoDohHandleResolver,
+  XrpcHandleResolver,
+  type HandleResolver,
+} from "@atproto-labs/handle-resolver";
 import type { Migration } from "./migrate.ts";
 import { readXrpcResponse } from "./xrpc.ts";
 import { initSetting } from "./settings.ts";
@@ -214,6 +218,58 @@ export function clientMetadata(
   };
 }
 
+/**
+ * Resolve handles the decentralized way first (DNS TXT over HTTPS, then the
+ * handle's /.well-known/atproto-did), and fall back to asking a service's
+ * com.atproto.identity.resolveHandle. The fallback matters on Workers: a
+ * Worker can't always reach Cloudflare's own DNS-over-HTTPS endpoint, so the
+ * DNS path alone fails for handles that are DNS-only, like bsky.app.
+ */
+export class FallbackHandleResolver implements HandleResolver {
+  constructor(private readonly resolvers: HandleResolver[]) {}
+
+  async resolve(handle: string, options?: Parameters<HandleResolver["resolve"]>[1]) {
+    let lastError: unknown;
+    for (const resolver of this.resolvers) {
+      try {
+        const did = await resolver.resolve(handle, options);
+        if (did) return did;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    if (lastError) console.warn(`Couldn't resolve handle ${handle}`, lastError);
+    return null;
+  }
+}
+
+/**
+ * The AT Protocol libraries build requests with `redirect: "error"` (refuse
+ * redirects), which the Workers runtime's Request constructor rejects
+ * outright. On Workers, make the constructor map it to "manual": a redirect
+ * then comes back as a 3xx, which the libraries reject because it isn't OK,
+ * so the effect is the same. Elsewhere this does nothing.
+ */
+export function installWorkersRequestShim(force = false): void {
+  const g = globalThis as { Request: typeof Request; __iglooRequestShim?: true };
+  const onWorkers = globalThis.navigator?.userAgent === "Cloudflare-Workers";
+  if ((!onWorkers && !force) || g.__iglooRequestShim) return;
+  const NativeRequest = g.Request;
+  class WorkersRequest extends NativeRequest {
+    constructor(input: RequestInfo | URL, init?: RequestInit) {
+      super(input, init?.redirect === "error" ? { ...init, redirect: "manual" } : init);
+    }
+    // Requests the runtime makes (incoming ones) must still pass instanceof Request.
+    static [Symbol.hasInstance](value: unknown) {
+      return value instanceof NativeRequest;
+    }
+  }
+  g.Request = WorkersRequest as typeof Request;
+  g.__iglooRequestShim = true;
+}
+
+installWorkersRequestShim();
+
 export type FetchLike = (input: Request | string | URL, init?: RequestInit) => Promise<Response>;
 
 export type CreateOAuthClientOptions = {
@@ -223,6 +279,8 @@ export type CreateOAuthClientOptions = {
   signingKey?: Key;
   fetch?: FetchLike;
   dohEndpoint?: string;
+  /** Service for the resolveHandle fallback. */
+  handleService?: string;
   plcDirectoryUrl?: string;
 };
 
@@ -239,10 +297,15 @@ export function createOAuthClient(options: CreateOAuthClientOptions): OAuthClien
     stateStore: d1StateStore(options.db),
     sessionStore: d1SessionStore(options.db),
     runtimeImplementation: workersRuntime(options.db),
-    handleResolver: new AtprotoDohHandleResolver({
-      dohEndpoint: options.dohEndpoint ?? "https://cloudflare-dns.com/dns-query",
-      fetch: doFetch,
-    }),
+    handleResolver: new FallbackHandleResolver([
+      new AtprotoDohHandleResolver({
+        dohEndpoint: options.dohEndpoint ?? "https://cloudflare-dns.com/dns-query",
+        fetch: doFetch,
+      }),
+      new XrpcHandleResolver(options.handleService ?? "https://public.api.bsky.app", {
+        fetch: doFetch,
+      }),
+    ]),
     plcDirectoryUrl: options.plcDirectoryUrl,
     fetch: doFetch,
   });

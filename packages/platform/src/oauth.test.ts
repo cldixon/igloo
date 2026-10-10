@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { JoseKey } from "@atproto/jwk-jose";
 import { migrate } from "./migrate.ts";
 import {
+  FallbackHandleResolver,
   OAUTH_MIGRATION,
   clientMetadata,
   createOAuthClient,
@@ -119,5 +120,21 @@ describe("d1Lock", () => {
       .run();
     const lock = d1Lock(db, { waitMs: 50, pollMs: 10 });
     await expect(lock("l", () => "ran")).rejects.toThrow("Timed out");
+  });
+});
+
+describe("FallbackHandleResolver", () => {
+  const did = "did:plc:abcdefghijklmnopqrstuvwx" as const;
+  const fails = { resolve: async () => Promise.reject(new Error("DoH unreachable")) };
+  const finds = { resolve: async () => did };
+  const none = { resolve: async () => null };
+
+  test("uses the first resolver that finds the handle", async () => {
+    expect(await new FallbackHandleResolver([fails, finds]).resolve("bsky.app")).toBe(did);
+    expect(await new FallbackHandleResolver([none, finds]).resolve("bsky.app")).toBe(did);
+  });
+
+  test("returns null when none can", async () => {
+    expect(await new FallbackHandleResolver([fails, none]).resolve("nobody.test")).toBeNull();
   });
 });
