@@ -10,7 +10,6 @@
     "dev": "bun scripts/dev.ts",
     "build": "cd web && bun --bun vite build",
     "deploy": "bun run build && cf deploy",
-    "deploy:preview": "bun run build && cf previews deploy",
     "deploy:dry": "cf deploy --dry-run",
     "types": "cf workers types",
     "typecheck": "cf workers types && tsc --noEmit",

@@ -14,3 +14,7 @@ cli/igloo
 .cloudflare/
 .wrangler/
 instance/web/build/
+
+# Each owner's instance settings, written by `bun run setup`
+instance/*.config.json
+!instance/igloo.config.example.json

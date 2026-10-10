@@ -13,6 +13,7 @@
     "src/**/*.ts",
     "scripts/**/*.ts",
     "cloudflare.config.ts",
+    "config.ts",
     "wrangler.config.ts",
     ".cloudflare/types/index.d.ts"
   ]

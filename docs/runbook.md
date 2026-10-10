@@ -50,7 +50,7 @@ For deploys on push, connect the `igloo-appview` Worker to the repo in Workers B
 
 ## 2. Deploy the reference instance (data.cldixon.dev)
 
-`instance/cloudflare.config.ts` already describes it. Workers Builds deploys it from `main` once this branch merges. To do it by hand:
+Its settings are in `instance/igloo.config.json`, which isn't in the repo: keep a copy, or recreate it with `bun run setup` (worker `igloo`, bucket `data-repo`, domain `data.cldixon.dev`). For Workers Builds, set the build variables `IGLOO_BUCKET=data-repo` and `IGLOO_DOMAIN=data.cldixon.dev` on the `igloo` Worker, and turn its non-production branch builds off. To deploy by hand:
 
 ```bash
 cd instance
@@ -67,14 +67,15 @@ Open <https://data.cldixon.dev/admin>, sign in with test account 1 and the setup
 
 ## 3. Deploy two more instances
 
-Each instance needs its own Worker, bucket, database and domain. Use a separate checkout so the reference config stays untouched:
+Each instance needs its own Worker, bucket, database and domain. Give each its own config file; `IGLOO_CONFIG` picks which one a command uses:
 
 ```bash
-git worktree add ../igloo-2
-cd ../igloo-2 && bun install && cd instance
-bun run setup     # name igloo-2, bucket igloo-2, domain igloo-2.cldixon.dev
+cd instance
+export IGLOO_CONFIG=igloo-2.config.json
+bun run setup     # worker igloo-2, bucket igloo-2, domain igloo-2.cldixon.dev
 bun run deploy
 bun run secrets
+unset IGLOO_CONFIG
 ```
 
 Repeat with `igloo-3`. Claim each with a different test account, then publish a data dir from each.

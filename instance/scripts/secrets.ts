@@ -13,12 +13,11 @@
  * them as secrets keeps them out of the database.
  */
 import { $ } from "bun";
-import { readFileSync } from "fs";
+import { join } from "path";
 import { generateSigningJwk, generateToken } from "@igloo/platform";
+import { loadIglooConfig } from "../config.ts";
 
-const config = readFileSync("cloudflare.config.ts", "utf-8");
-const worker = /^[ \t]*name:\s*"([^"]+)"/m.exec(config)?.[1];
-if (!worker) throw new Error("Couldn't find the Worker name in cloudflare.config.ts");
+const { worker } = loadIglooConfig(join(import.meta.dirname, ".."));
 
 const setupCode = generateToken(12);
 const signingKey = await generateSigningJwk();

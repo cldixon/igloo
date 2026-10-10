@@ -103,6 +103,17 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   `cf cli search "<what you want to do>"` (keep queries generic: no names,
   domains, IDs or tokens), then `<command> --help`. Don't explore by chaining
   `--help` calls.
+- **No owner-specific values in the repo.** The instance is software anyone
+  deploys; each owner's settings (Worker name, bucket, domain, title) live in
+  a gitignored `instance/igloo.config.json` written by `bun run setup`, with
+  `IGLOO_*` environment overrides for Workers Builds (`instance/config.ts`).
+  A deploy with neither fails rather than using defaults. `IGLOO_CONFIG` picks
+  another file (demo instances; CI uses `igloo.config.example.json`). The
+  AppView is the network's own service, so its config is committed.
+- **No instance previews** (`previewUrls: false`): previews share production
+  bindings and migrations apply themselves, so a preview could migrate the
+  real database. The AppView gets none either (it has a Durable Object).
+  Deploys are Workers Builds' job; GitHub Actions only runs checks.
 - Each Worker is configured in its own `cloudflare.config.ts` (`cf/config`).
   The instance also has a small `wrangler.config.ts` for the assets
   directory, because cf still bundles through Wrangler. `cf workers types`

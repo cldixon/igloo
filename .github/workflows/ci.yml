@@ -6,8 +6,8 @@ on:
   pull_request:
     branches: [main]
 
-# Quality gate only. Building and deploying the Workers is Workers Builds'
-# job — see "Continuous Deployment" in the README.
+# Quality gate only. Deploying the Workers is Workers Builds' job, on
+# Cloudflare's minutes — see "Continuous Deployment" in the README.
 jobs:
   workers:
     name: Workers
@@ -40,8 +40,12 @@ jobs:
 
       # Runs last: the instance config points at web/build, so the assets have
       # to exist before cf will resolve it.
+      # The instance's own config is each owner's and not in the repo; the
+      # example stands in for it.
       - name: Validate Workers config
         run: bun run --filter '*' deploy:dry
+        env:
+          IGLOO_CONFIG: igloo.config.example.json
 
   cli:
     name: CLI

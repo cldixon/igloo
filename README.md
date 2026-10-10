@@ -69,7 +69,7 @@ bunx cf auth login
 bun run setup
 ```
 
-`bun run setup` asks for your Worker name, bucket name, site title and domain. It creates the R2 bucket if it doesn't exist, sets CORS on it, and writes your answers into `cloudflare.config.ts`. The D1 database (named after the Worker) is created by the first deploy, and its schema migrates itself.
+`bun run setup` asks for your Worker name, bucket name, site title and domain. It creates the R2 bucket if it doesn't exist, sets CORS on it, and writes your answers to `igloo.config.json`. That file is your instance's only configuration; git ignores it, so pulling new igloo versions never conflicts with it. Keep it (or its values) somewhere safe: every deploy reads it. Re-running `setup` offers your current answers as defaults. The D1 database (named after the Worker) is created by the first deploy, and its schema migrates itself.
 
 ### 3. Run locally
 
@@ -101,48 +101,25 @@ Both are optional. Without them the instance generates its own on first use, kee
 
 Then open `/admin` on your instance and sign in with your AT Protocol handle (Bluesky or any PDS) and the setup code. That account becomes the owner; the code stops working, and from then on only the owner can sign in. The instance asks your PDS only for write access to igloo records.
 
-`bun run setup` writes your custom domain into `cloudflare.config.ts`. The zone must be on your own Cloudflare account, or the deploy will fail:
+The custom domain must be on a zone in your own Cloudflare account, or the deploy will fail. Answer the domain prompt with a blank line to serve from `*.workers.dev` instead: with a domain, the custom domain is the only way in; without one, `workers.dev` is turned on so the Worker still has a route.
 
-```ts
-domains: ["data.example.com"],
-```
-
-Answer the domain prompt with a blank line to drop the domain and serve from `*.workers.dev` instead. `setup` keeps the two in step: giving a domain sets `workersDev` to `false` so the custom domain is the only way in, and leaving it blank sets it to `true` so the Worker still has a route.
+To update later, pull the new version and run `bun run deploy` again. Migrations apply themselves on first request.
 
 ## Continuous Deployment
 
-An instance deploys as a **single Worker** (the API and the web UI ship together), so [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/) handles the whole pipeline natively. The AppView is a second Worker connected the same way, with root directory `appview`.
+GitHub Actions (`.github/workflows/ci.yml`) runs every quality check on pull requests and on `main`: format, type check, `svelte-check`, tests, build, and `cf deploy --dry-run` against `instance/igloo.config.example.json`. Deploying is [Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/)' job, so builds use Cloudflare's minutes rather than GitHub's.
 
-The two systems have separate jobs, and neither does the other's work:
+To deploy your instance on every push to `main`, connect your Worker in the Cloudflare dashboard (**Settings** → **Build**):
 
-| System                                          | Responsibility                                                                                                                                                |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **GitHub Actions** (`.github/workflows/ci.yml`) | Every quality check. Workers: type check, `svelte-check`, tests, build, and `cf deploy --dry-run` to validate each config. CLI: `gofmt`, `go vet`, `go test`. |
-| **Workers Builds**                              | Building and deploying only                                                                                                                                   |
+1. Connect your GitHub repository (your fork, or the repo you deploy from).
+2. Root directory: `instance`.
+3. Build command: `bun install && bun run build`. Deploy command: `bunx cf deploy`.
+4. **Build variables:** your `igloo.config.json` isn't in the repo, so give the build its values instead: `IGLOO_BUCKET` and, if you have them, `IGLOO_DOMAIN`, `IGLOO_WORKER` (default `igloo`), `IGLOO_TITLE`, `IGLOO_TAGLINE`. A build with neither the file nor `IGLOO_BUCKET` fails rather than deploying defaults.
+5. Leave **non-production branch builds** off.
 
-Connect the repo once:
+The instance has no preview deployments (`previewUrls: false`). Preview versions share production's bucket and database, and migrations apply themselves on first request, so a preview of a branch with a new migration would change the real database before the branch merged. Try changes locally with `bun run dev --local`.
 
-1. In the Cloudflare dashboard, open your Worker → **Settings** → **Build**.
-2. Connect your GitHub repository.
-3. Set the root directory to `instance`.
-4. Set the build command to `bun install && bun run build`.
-5. Set the deploy command to `bunx cf deploy`, and the non-production branch deploy command to `bunx cf previews deploy`.
-6. Under **Branch control**, enable **non-production branch builds** (off by default — this is what produces the PR previews).
-
-You then get:
-
-| Event                    | Result                                                       |
-| ------------------------ | ------------------------------------------------------------ |
-| Push to `main`           | `cf deploy` — production updated                             |
-| Push to any other branch | `cf previews deploy` — a preview, not promoted to production |
-| Open a pull request      | Preview URLs posted as a PR comment                          |
-
-Each PR comment carries two links: a stable branch alias (`<branch>-<worker>.<subdomain>.workers.dev`) that survives new commits, and a per-commit URL pinned to that exact version. You can also publish a preview by hand with `bun run deploy:preview`.
-
-### Caveats
-
-- **Preview versions share production bindings by default.** An instance preview reads and writes the same R2 bucket and D1 database as production, and applies its migrations to that database. Migrations only ever add, which is what keeps this safe. `cloudflare.config.ts` can check the `isPreview` flag cf passes to config factories to bind separate preview resources if that becomes a problem.
-- **Workers with Durable Objects get no preview URLs.** The instance has none. The AppView has one (`JetstreamDO`), so it sets `previewUrls: false` and only deploys from `main`. In its Workers Builds settings, leave non-production branch builds off.
+The AppView is connected the same way with root directory `appview`, build command `bun install`, deploy command `bunx cf deploy`, and non-production branch builds off. Workers with Durable Objects get no preview URLs, and it has one (`JetstreamDO`).
 
 ## Adding Data
 
@@ -163,17 +140,20 @@ rclone copy ./my-dataset r2:my-bucket/my-dataset
 
 ## Configuration
 
-All instance configuration lives in `instance/cloudflare.config.ts`:
+Each instance's settings live in `instance/igloo.config.json` (written by `bun run setup`, ignored by git). An environment variable overrides each one, for CI and Workers Builds:
 
-| Setting                 | Description                              |
-| ----------------------- | ---------------------------------------- |
-| `name`                  | Worker name                              |
-| `env.DATA` name         | R2 bucket holding your data              |
-| `env.IGLOO_TITLE`       | Site title                               |
-| `env.IGLOO_TAGLINE`     | Site tagline                             |
-| `env.IGLOO_THEME`       | Default visual theme (`repo` or `index`) |
-| `env.IGLOO_APPVIEW_URL` | The AppView to notify after publishing   |
-| `env.DB` name           | D1 database for instance state           |
+| Key        | Environment         | Description                                                        |
+| ---------- | ------------------- | ------------------------------------------------------------------ |
+| `worker`   | `IGLOO_WORKER`      | Worker name (default `igloo`)                                      |
+| `bucket`   | `IGLOO_BUCKET`      | R2 bucket holding your data                                        |
+| `database` | `IGLOO_DATABASE`    | D1 database for instance state (default: the Worker name)          |
+| `domain`   | `IGLOO_DOMAIN`      | Custom domain, on a zone in your account; without one, workers.dev |
+| `title`    | `IGLOO_TITLE`       | Site title                                                         |
+| `tagline`  | `IGLOO_TAGLINE`     | Site tagline                                                       |
+| `theme`    | `IGLOO_THEME`       | Default visual theme (`repo` or `index`)                           |
+| `appview`  | `IGLOO_APPVIEW_URL` | The AppView to notify after publishing (default the network's own) |
+
+`IGLOO_CONFIG` points at a different file. `instance/cloudflare.config.ts` turns these into the Worker's config and holds nothing specific to one instance.
 
 The R2 and D1 bindings authenticate through your Cloudflare account. The only secrets are the optional `SETUP_CODE` and `OAUTH_SIGNING_KEY` (see [Deploy and claim](#4-deploy-and-claim)).
 
