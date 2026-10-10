@@ -59,6 +59,10 @@ export async function loadDuckDB(source: DuckDBSource): Promise<DuckDB> {
   const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), new Worker(workerUrl));
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
   URL.revokeObjectURL(workerUrl);
+  // DuckDB-WASM downloads whole files over HTTP unless told otherwise. With
+  // this off it reads byte ranges, and still falls back to a full read for
+  // servers that don't support them.
+  await db.open({ filesystem: { forceFullHTTPReads: false } });
   const conn = await db.connect();
   return {
     async query(sql: string) {

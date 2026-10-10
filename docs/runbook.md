@@ -141,4 +141,6 @@ Browsers running the query panel load DuckDB-WASM from `cdn.jsdelivr.net`, and D
 5. **MCP.** Point an MCP client at `https://data.cldixon.dev/mcp`. Without a token it gets read tools. With `Authorization: Bearer $IGLOO_TOKEN` it can also create, describe and publish data dirs.
 6. **AI drafts.** In a data dir's editor, click **Draft with AI**, review what it fills in, and save what you keep.
 
-Not yet verified live: Parquet range reads through DuckDB in a real browser (here, only CSV could be tested, because the extension host was blocked), Workers AI's draft quality, and footer profiling on large real-world Parquet files.
+Verified live (Oct 2026): Parquet and CSV queries on the AppView read byte ranges (a `count(*)` on a 22.6 MB Parquet file fetches only its 7.9 KB footer), anonymous MCP lists only the read tools, the public data dir API, plain-word search, and 401s from the admin API without a valid token. DuckDB-WASM 1.32 downloads whole files over HTTP by default; `loadDuckDB` turns that off with `forceFullHTTPReads: false`.
+
+Not yet verified live: Measure on a CSV, `col:`/`type:`/`tag:` search (needs measured files and tags), API tokens and MCP write tools, Workers AI's draft quality, and footer profiling on large real-world Parquet files.
