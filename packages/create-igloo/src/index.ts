@@ -87,7 +87,7 @@ jobs:
       - name: No token, no deploy
         if: env.CLOUDFLARE_API_TOKEN == ''
         run: echo "::notice::Not deploying. Add the CLOUDFLARE_API_TOKEN repo secret to deploy on push."
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: env.CLOUDFLARE_API_TOKEN != ''
       - uses: oven-sh/setup-bun@v2
         if: env.CLOUDFLARE_API_TOKEN != ''
