@@ -8,14 +8,13 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: write # the GitHub release
+  id-token: write # npm trusted publishing
 
 jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    env:
-      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -25,8 +24,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@latest
 
       - run: bun install --frozen-lockfile
 
@@ -43,12 +45,9 @@ jobs:
       - name: Pack
         run: bun run --cwd instance pack
 
-      # Skipped until the NPM_TOKEN secret exists (a granular npm token with
-      # publish rights on @igloo-data/instance and create-igloo).
+      # npm trusted publishing: no token. Each package on npmjs.com trusts
+      # this workflow (cldixon/igloo, release.yml), and npm adds provenance.
       - name: Publish to npm
-        if: env.NPM_TOKEN != ''
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm publish instance/dist/igloo-data-instance-*.tgz --access public
           npm publish instance/dist/create-igloo-*.tgz --access public

@@ -202,7 +202,7 @@ To run a development instance against real resources, `bun run setup` in `instan
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-`.github/workflows/release.yml` packs, publishes both to npm (once the `NPM_TOKEN` secret exists), and attaches the tarballs to a GitHub release.
+`.github/workflows/release.yml` packs, publishes both to npm, and attaches the tarballs to a GitHub release. Publishing uses npm [trusted publishing](https://docs.npmjs.com/trusted-publishers): there's no npm token; each package on npmjs.com trusts `cldixon/igloo`'s `release.yml`, and npm adds provenance.
 
 ## License
 
