@@ -26,7 +26,7 @@ export type IglooConfig = {
 export const CONFIG_FILE = "igloo.config.json";
 
 export const DEFAULTS = {
-  worker: "igloo",
+  worker: "igloo-instance",
   bucket: "igloo-data",
   title: "igloo",
   tagline: "personal data repository",
@@ -34,7 +34,7 @@ export const DEFAULTS = {
   appview: "https://igloo.cldixon.dev",
 } as const;
 
-/** Environment variables that override the file, for CI and Workers Builds. */
+/** Environment variables that override the file, for CI. */
 const ENV: Record<keyof IglooConfig, string> = {
   worker: "IGLOO_WORKER",
   bucket: "IGLOO_BUCKET",

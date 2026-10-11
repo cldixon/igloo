@@ -117,7 +117,15 @@ async function deploy() {
   const existed = await hasSecrets(worker);
   const code = await interactive(["bunx", "cf", "deploy", ...rest]);
   if (code !== 0) process.exit(code);
-  if (!existed) await secrets();
+  if (existed) return;
+  if (process.env.CI) {
+    // CI logs can be public, and the setup code claims the instance. The
+    // instance makes its own on first use and writes it to the Worker's logs.
+    console.log("\nNo setup code was set here, since CI logs may be public.");
+    console.log("Run `bun run secrets` on your own machine to get one before you claim the instance.\n");
+    return;
+  }
+  await secrets();
 }
 
 async function secrets() {

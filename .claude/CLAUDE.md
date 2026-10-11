@@ -32,7 +32,7 @@ This is the third iteration. Ignore anything describing the earlier ones.
 1. Railway + Bun, single-user MVP. Gone.
 2. Single Cloudflare Worker serving a REST API, SvelteKit UI, MCP endpoint and
    Go CLI over one R2 bucket. This is the code currently in the repo, deployed
-   as the `igloo` Worker at `data.cldixon.dev` (bucket `data-repo`).
+   at `data.cldixon.dev` (bucket `data-repo`).
 3. The networked design in the artifact. Iteration 2 becomes the starting
    point for the **instance**; the AppView is new.
 
@@ -125,7 +125,13 @@ endpoint and CLI stay in place but aren't extended in phase 1.
 - **No instance previews** (`previewUrls: false`): previews share production
   bindings and migrations apply themselves, so a preview could migrate the
   real database. The AppView gets none either (it has a Durable Object).
-  Deploys are Workers Builds' job; GitHub Actions runs checks and releases.
+  Deploys run in GitHub Actions, configured in code (both repos are public,
+  so minutes are free): `deploy-appview.yml` here, and the `deploy.yml`
+  that `bun create igloo` writes into each owner's folder. CI never prints a
+  setup code (`igloo deploy` skips it when `CI` is set). No Workers Builds.
+- The reference instance is the Worker `igloo-instance` (default Worker
+  name for new owners too). Its D1 database is still named `igloo`, pinned
+  with `"database"` in its config.
 - Each Worker is configured in its own `cloudflare.config.ts` (`cf/config`).
   The instance also has a small `wrangler.config.ts` for the assets
   directory, because cf still bundles through Wrangler. `cf workers types`

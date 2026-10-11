@@ -1,5 +1,5 @@
 {
-  "worker": "igloo",
+  "worker": "igloo-instance",
   "bucket": "igloo-data",
   "domain": null,
   "title": "igloo",

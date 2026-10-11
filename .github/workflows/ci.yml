@@ -6,8 +6,8 @@ on:
   pull_request:
     branches: [main]
 
-# Quality gate only. Deploying the Workers is Workers Builds' job, on
-# Cloudflare's minutes — see "Continuous Deployment" in the README.
+# Quality gate only. deploy-appview.yml deploys the AppView from main;
+# release.yml publishes the instance packages on a tag.
 jobs:
   workers:
     name: Workers

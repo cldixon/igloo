@@ -13,7 +13,7 @@
  */
 import { $ } from "bun";
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from "fs";
-import { join, resolve } from "path";
+import { dirname, join, resolve } from "path";
 
 declare const IGLOO_VERSION: string;
 declare const CF_VERSION: string;
@@ -65,6 +65,31 @@ const files: Record<string, string> = {
 export default defineIgloo({ dir: import.meta.dirname });
 `,
   "wrangler.config.ts": `export { default } from "@igloo-data/instance/wrangler";\n`,
+  ".github/workflows/deploy.yml": `name: Deploy
+
+# Deploys this igloo instance on every push to main. Needs the repo secrets
+# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+`,
   ".gitignore": "node_modules/\n.cloudflare/\n.wrangler/\n",
   "README.md": `# My igloo
 
@@ -78,10 +103,18 @@ An [igloo](https://github.com/cldixon/igloo) instance. Its settings are in \`igl
 
 **Update igloo:** \`bun update @igloo-data/instance && bun run deploy\`. Migrations apply themselves.
 
-**Deploy on push:** in the Cloudflare dashboard, open the Worker, then Settings, then Build, and connect this repo. Build command \`bun install\`, deploy command \`bun run deploy\`, non-production branch builds off. Nothing else to set: the settings are in this repo.
+**Deploy on push:** \`.github/workflows/deploy.yml\` deploys every push to \`main\`. Push this folder to GitHub and add two repo secrets: \`CLOUDFLARE_API_TOKEN\` (a Cloudflare API token from the "Edit Cloudflare Workers" template, plus D1 Edit) and \`CLOUDFLARE_ACCOUNT_ID\`. With the GitHub CLI:
+
+\`\`\`bash
+gh secret set CLOUDFLARE_API_TOKEN
+gh secret set CLOUDFLARE_ACCOUNT_ID
+\`\`\`
 `,
 };
-for (const [name, content] of Object.entries(files)) writeFileSync(join(dir, name), content);
+for (const [name, content] of Object.entries(files)) {
+  mkdirSync(dirname(join(dir, name)), { recursive: true });
+  writeFileSync(join(dir, name), content);
+}
 console.log("✓ Wrote the instance folder");
 
 await $`bun install`.cwd(dir).quiet();

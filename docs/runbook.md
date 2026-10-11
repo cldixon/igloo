@@ -46,18 +46,18 @@ curl -H "Authorization: Bearer $TOKEN" https://igloo.cldixon.dev/admin/jetstream
 # {"connected":true,"cursor":…,"lastEventAt":null}
 ```
 
-For deploys on push, connect the `igloo-appview` Worker to the repo in Workers Builds with root directory `appview`, build command `bun install`, deploy command `bunx cf deploy`, and non-production branch builds off.
+After that, `.github/workflows/deploy-appview.yml` deploys it on every push to `main` that touches `appview/` or `packages/`. It needs the repo secrets `CLOUDFLARE_API_TOKEN` (the "Edit Cloudflare Workers" template plus D1 Edit and Queues Edit) and `CLOUDFLARE_ACCOUNT_ID`.
 
 ## 2. Deploy the reference instance (data.cldixon.dev)
 
-It deploys from its own repo, [`cldixon/cldixon-igloo`](https://github.com/cldixon/cldixon-igloo): `igloo.config.json` (worker `igloo`, bucket `data-repo`, domain `data.cldixon.dev`) plus a dependency on `@igloo-data/instance`. From a checkout of it:
+It deploys from its own repo, [`cldixon/cldixon-igloo`](https://github.com/cldixon/cldixon-igloo): `igloo.config.json` (worker `igloo-instance`, database `igloo`, bucket `data-repo`, domain `data.cldixon.dev`) plus a dependency on `@igloo-data/instance`. From a checkout of it:
 
 ```bash
 bun install
 bun run deploy         # the first deploy of a new Worker also prints the setup code
 ```
 
-For deploy on push, connect the `igloo` Worker to `cldixon/cldixon-igloo` in Workers Builds: build `bun install`, deploy `bun run deploy`, non-production branch builds off, no build variables. Disconnect it from `cldixon/igloo`.
+Its `.github/workflows/deploy.yml` deploys every push to `main`, with the same two repo secrets as the AppView.
 
 Open <https://data.cldixon.dev/admin>, sign in with test account 1 and the setup code. Then, in the admin panel:
 
