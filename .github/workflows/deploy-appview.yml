@@ -1,0 +1,47 @@
+name: Deploy AppView
+
+# Deploys igloo-appview (igloo.cldixon.dev) from main, using the repo secret
+# CLOUDFLARE_API_TOKEN. Instances aren't deployed from this repo; each owner
+# deploys theirs from its own folder.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "appview/**"
+      - "packages/**"
+      - "bun.lock"
+      - ".github/workflows/deploy-appview.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-appview
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    # Deploying needs the repo secret CLOUDFLARE_API_TOKEN. Without it, this
+    # skips with a notice instead of failing on every push to main.
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - name: No token, no deploy
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: echo "::notice::Not deploying. Add the CLOUDFLARE_API_TOKEN repo secret to deploy on push."
+
+      - uses: actions/checkout@v4
+        if: env.CLOUDFLARE_API_TOKEN != ''
+
+      - uses: oven-sh/setup-bun@v2
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+        if: env.CLOUDFLARE_API_TOKEN != ''
+
+      - name: Deploy
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        working-directory: appview
+        run: bunx cf deploy

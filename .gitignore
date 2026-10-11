@@ -10,6 +10,11 @@ dist/
 # Go CLI
 cli/igloo
 
-# Cloudflare
-web/build/
+# Cloudflare: cf build output and generated types, web UI build
+.cloudflare/
 .wrangler/
+instance/web/build/
+
+# Each owner's instance settings, written by `bun run setup`
+instance/*.config.json
+!instance/igloo.config.example.json

@@ -6,11 +6,11 @@ on:
   pull_request:
     branches: [main]
 
-# Quality gate only. Building and deploying the Worker is Workers Builds'
-# job — see "Continuous Deployment" in the README.
+# Quality gate only. deploy-appview.yml deploys the AppView from main;
+# release.yml publishes the instance packages on a tag.
 jobs:
-  worker:
-    name: Worker
+  workers:
+    name: Workers
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,22 +24,30 @@ jobs:
       - name: Format check
         run: bun run format:check
 
+      # Each package's typecheck runs `cf workers types` first, generating the
+      # Env and runtime types from its cloudflare.config.ts.
       - name: Type check
-        run: bunx tsc --noEmit
+        run: bun run typecheck
 
       - name: Svelte check
-        run: bun run check
+        run: bun run --cwd instance check
 
       - name: Test
         run: bun test
 
-      - name: Build
-        run: bun run build
+      # Builds the UI and the published packages, so a release can't be the
+      # first time packing runs.
+      - name: Pack instance and create-igloo
+        run: bun run --cwd instance pack
 
-      # Runs last: the config points at web/build, so the assets have to exist
-      # before wrangler will resolve it.
+      # Runs last: the instance config points at web/build, so the assets have
+      # to exist before cf will resolve it (pack built them).
+      # The instance's own config is each owner's and not in the repo; the
+      # example stands in for it.
       - name: Validate Workers config
-        run: bunx wrangler deploy --dry-run
+        run: bun run --filter '*' deploy:dry
+        env:
+          IGLOO_CONFIG: igloo.config.example.json
 
   cli:
     name: CLI

@@ -1,0 +1,22 @@
+{
+  "lexicon": 1,
+  "id": "dev.cldixon.igloo.notifyRecord",
+  "defs": {
+    "main": {
+      "type": "procedure",
+      "description": "A hint that an igloo record was created, updated or deleted. The AppView re-fetches the record from its repo; the hint itself is never trusted, and is never required (Jetstream delivers the same change).",
+      "input": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["uri"],
+          "properties": { "uri": { "type": "string", "format": "at-uri" } }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": { "type": "object", "properties": {} }
+      }
+    }
+  }
+}

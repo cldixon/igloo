@@ -1,0 +1,7 @@
+{
+  "worker": "igloo-instance",
+  "bucket": "igloo-data",
+  "domain": null,
+  "title": "igloo",
+  "tagline": "personal data repository"
+}

@@ -1,0 +1,106 @@
+{
+  "lexicon": 1,
+  "id": "dev.cldixon.igloo.dataDir",
+  "description": "Announces a data dir: a folder of data files on an igloo instance, with their hashes. Describes and points to data; never contains it.",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "Record key: the data dir's name.",
+      "key": "any",
+      "record": {
+        "type": "object",
+        "required": ["name", "instance", "files", "createdAt"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 64,
+            "description": "The data dir's name and folder: lowercase letters, digits, '.', '_' and '-', starting and ending with a letter or digit. Equals the record key."
+          },
+          "instance": {
+            "type": "string",
+            "format": "uri",
+            "description": "The instance serving the files: an https origin with no path."
+          },
+          "files": {
+            "type": "array",
+            "minLength": 1,
+            "maxLength": 1000,
+            "items": { "type": "ref", "ref": "#file" }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime",
+            "description": "When the data dir was first published."
+          },
+          "title": { "type": "string", "maxLength": 200 },
+          "description": { "type": "string", "maxLength": 3000 },
+          "license": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "SPDX identifier where one exists, e.g. CC-BY-4.0."
+          },
+          "readme": { "type": "ref", "ref": "#readme" },
+          "tags": {
+            "type": "array",
+            "maxLength": 20,
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "description": "Lowercase words joined by dashes, e.g. time-series."
+            }
+          }
+        }
+      }
+    },
+    "file": {
+      "type": "object",
+      "required": ["path", "size", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 1024,
+          "description": "Relative to the data dir: '/'-separated, no empty, '.' or '..' segments."
+        },
+        "size": { "type": "integer", "minimum": 0, "description": "Bytes." },
+        "sha256": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "description": "Lowercase hex sha256 of the file's bytes."
+        },
+        "format": {
+          "type": "string",
+          "maxLength": 32,
+          "knownValues": ["parquet", "csv", "tsv", "json", "jsonl", "arrow"]
+        },
+        "rows": { "type": "integer", "minimum": 0, "description": "Measured row count." },
+        "schema": {
+          "type": "array",
+          "maxLength": 2000,
+          "description": "Measured top-level columns.",
+          "items": { "type": "ref", "ref": "#column" }
+        }
+      }
+    },
+    "column": {
+      "type": "object",
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "maxLength": 256 },
+        "type": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "The column's type as DuckDB names it, e.g. BIGINT, VARCHAR, DECIMAL(10,2)."
+        }
+      }
+    },
+    "readme": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "maxLength": 1024 },
+        "sha256": { "type": "string", "minLength": 64, "maxLength": 64 }
+      }
+    }
+  }
+}
