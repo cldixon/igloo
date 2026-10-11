@@ -1,6 +1,8 @@
 import { Hono } from "hono";
 import type { Bindings } from "../bindings.js";
 import type { IglooConfig, VisualTheme } from "../../shared/types.js";
+import { getDb } from "../../db/migrations.js";
+import { getOwnerHandle } from "../../auth/owner.js";
 
 export const configRoute = new Hono<{ Bindings: Bindings }>();
 
@@ -23,4 +25,7 @@ export function loadConfig(env: Bindings): IglooConfig {
   };
 }
 
-configRoute.get("/config", (c) => c.json(loadConfig(c.env)));
+configRoute.get("/config", async (c) => {
+  const owner = await getOwnerHandle(await getDb(c.env.DB)).catch(() => null);
+  return c.json({ ...loadConfig(c.env), owner });
+});

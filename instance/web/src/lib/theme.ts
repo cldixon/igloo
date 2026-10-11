@@ -10,6 +10,14 @@ export const config = writable<IglooConfig>({
   theme: "repo",
 });
 
+/**
+ * The name tabs show: the title plus the owner's handle ("igloo — alice.com"),
+ * so an instance reads differently from the AppView and from other instances.
+ */
+export const siteName = derived(config, ($config) =>
+  $config.owner ? `${$config.title} — ${$config.owner}` : $config.title,
+);
+
 // ---- Color mode (light/dark) ----
 function getInitialColorMode(): ColorMode {
   if (!browser) return "dark";

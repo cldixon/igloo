@@ -10,6 +10,7 @@
     type NetworkStatus,
   } from "$lib/admin";
   import { formatBytes } from "$lib/utils";
+  import { siteName } from "$lib/theme";
 
   const ERRORS: Record<string, string> = {
     sign_in_failed: "Sign-in didn't complete. Try again.",
@@ -122,7 +123,7 @@
     });
 </script>
 
-<svelte:head><title>Admin</title></svelte:head>
+<svelte:head><title>Admin · {$siteName}</title></svelte:head>
 
 <div class="admin">
   {#if !status}

@@ -49,6 +49,8 @@ export interface IglooConfig {
   title: string;
   tagline: string;
   theme: VisualTheme;
+  /** The owner's handle, once the instance is claimed. */
+  owner?: string | null;
 }
 
 /** A data dir as the admin API returns it. */
