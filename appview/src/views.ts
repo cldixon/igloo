@@ -79,6 +79,9 @@ form.login input { font: inherit; padding: 8px 10px; border: 1px solid var(--lin
 footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 0.82rem; padding-block: 16px; }
 `;
 
+/** What tabs call the AppView, set apart from instances ("igloo — alice.com"). */
+const SITE = "igloo — social";
+
 const FONTS =
   "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap";
 
@@ -203,7 +206,7 @@ export function feedPage(
   next: string | null,
 ): Html {
   return layout(
-    "igloo",
+    SITE,
     viewer,
     html`<div style="display:grid;gap:8px">
         <span class="eyebrow">Recently published</span>
@@ -257,7 +260,7 @@ export function dataDirPage(
   const r = d.record;
   const total = r.files.reduce((sum, f) => sum + f.size, 0);
   return layout(
-    `${r.title ?? r.name} · igloo`,
+    `${r.title ?? r.name} · ${SITE}`,
     viewer,
     html`<div style="display:grid;gap:10px">
         <span class="eyebrow">Data dir</span>
@@ -436,7 +439,7 @@ export function instancePage(
   items: IndexedDataDir[],
 ): Html {
   return layout(
-    `${instance.record.name} · igloo`,
+    `${instance.record.name} · ${SITE}`,
     viewer,
     html`<div style="display:grid;gap:10px">
         <span class="eyebrow">Instance</span>
@@ -462,7 +465,7 @@ export function maintainerPage(
 ): Html {
   const name = maintainer?.displayName || (maintainer?.handle ? `@${maintainer.handle}` : did);
   return layout(
-    `${name} · igloo`,
+    `${name} · ${SITE}`,
     viewer,
     html`<div class="profile">
         ${maintainer?.avatar ? html`<img class="avatar big" src="${maintainer.avatar}" alt="" />` : ""}
@@ -502,7 +505,7 @@ export function searchPage(
   instances: Map<string, IndexedInstance>,
 ): Html {
   return layout(
-    q ? `${q} · search · igloo` : "Search · igloo",
+    q ? `${q} · search · ${SITE}` : `Search · ${SITE}`,
     viewer,
     html`<div style="display:grid;gap:8px">
         <span class="eyebrow">Search</span>
@@ -532,7 +535,7 @@ export function searchPage(
 
 export function loginPage(viewer: Viewer, error?: string): Html {
   return layout(
-    "Sign in · igloo",
+    `Sign in · ${SITE}`,
     viewer,
     html`<h1>Sign in</h1>
       <p class="muted" style="margin:0">
@@ -549,7 +552,7 @@ export function loginPage(viewer: Viewer, error?: string): Html {
 
 export function notFoundPage(viewer: Viewer, what: string): Html {
   return layout(
-    "Not found · igloo",
+    `Not found · ${SITE}`,
     viewer,
     html`<h1>Not found</h1>
       <p class="muted">${what} isn't in the index. It may have been unpublished.</p>

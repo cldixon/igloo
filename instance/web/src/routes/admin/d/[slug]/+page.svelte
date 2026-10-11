@@ -4,6 +4,7 @@
   import type { DataDir } from "@igloo/shared";
   import { admin, auth, feedUrl, LICENSES, uploadFile, type DataDirDetail } from "$lib/admin";
   import { formatBytes, shortHash } from "$lib/utils";
+  import { siteName } from "$lib/theme";
   import { DUCKDB_CDN, loadDuckDB, measureFile } from "@igloo/query";
 
   const slug = page.params.slug as string;
@@ -166,7 +167,7 @@
   }
 </script>
 
-<svelte:head><title>{slug} · Admin</title></svelte:head>
+<svelte:head><title>{slug} · Admin · {$siteName}</title></svelte:head>
 
 <div class="admin">
   <div class="row">

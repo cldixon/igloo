@@ -1,5 +1,5 @@
-import { generateToken } from "@igloo/platform";
-import { getSetting, initSetting } from "@igloo/platform";
+import { generateToken, resolveDid, type IdentityOptions } from "@igloo/platform";
+import { getSetting, initSetting, setSetting } from "@igloo/platform";
 
 /**
  * Ownership of the instance.
@@ -57,4 +57,35 @@ export async function checkSetupCode(
  */
 export async function claimOwnership(db: D1Database, did: string): Promise<string> {
   return initSetting(db, OWNER_DID, did);
+}
+
+const OWNER_HANDLE = "owner_handle";
+const OWNER_HANDLE_CHECKED = "owner_handle_checked_at";
+const HANDLE_TTL_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The owner's handle, for display (the site's title). Read from the owner's
+ * DID document and cached for a day, since handles rarely change. Unverified:
+ * it's the owner's own claim, shown on the owner's own instance. Falls back to
+ * the cached value, or null, if the DID can't be resolved.
+ */
+export async function getOwnerHandle(
+  db: D1Database,
+  options: IdentityOptions = {},
+): Promise<string | null> {
+  const did = await getOwner(db);
+  if (!did) return null;
+  const [cached, checkedAt] = await Promise.all([
+    getSetting(db, OWNER_HANDLE),
+    getSetting(db, OWNER_HANDLE_CHECKED),
+  ]);
+  if (cached && checkedAt && Date.now() - Date.parse(checkedAt) < HANDLE_TTL_MS) return cached;
+  try {
+    const { handle } = await resolveDid(did, { timeoutMs: 3000, ...options });
+    await setSetting(db, OWNER_HANDLE_CHECKED, new Date().toISOString());
+    if (handle) await setSetting(db, OWNER_HANDLE, handle);
+    return handle ?? cached;
+  } catch {
+    return cached;
+  }
 }
