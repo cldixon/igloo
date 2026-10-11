@@ -46,7 +46,7 @@ curl -H "Authorization: Bearer $TOKEN" https://igloo.cldixon.dev/admin/jetstream
 # {"connected":true,"cursor":…,"lastEventAt":null}
 ```
 
-After that, `.github/workflows/deploy-appview.yml` deploys it on every push to `main` that touches `appview/` or `packages/`. It needs the repo secrets `CLOUDFLARE_API_TOKEN` (the "Edit Cloudflare Workers" template plus D1 Edit and Queues Edit) and `CLOUDFLARE_ACCOUNT_ID`.
+After that, `.github/workflows/deploy-appview.yml` deploys it on every push to `main` that touches `appview/` or `packages/`. It needs one secret on `cldixon/igloo`: `CLOUDFLARE_API_TOKEN` (the "Edit Cloudflare Workers" template plus D1 Edit and Queues Edit).
 
 ## 2. Deploy the reference instance (data.cldixon.dev)
 
@@ -57,7 +57,7 @@ bun install
 bun run deploy         # the first deploy of a new Worker also prints the setup code
 ```
 
-Its `.github/workflows/deploy.yml` deploys every push to `main`, with the same two repo secrets as the AppView.
+Its `.github/workflows/deploy.yml` deploys every push to `main` once `cldixon/cldixon-igloo` has the secret `CLOUDFLARE_API_TOKEN` (the same token works).
 
 Open <https://data.cldixon.dev/admin>, sign in with test account 1 and the setup code. Then, in the admin panel:
 

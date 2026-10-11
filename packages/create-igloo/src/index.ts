@@ -67,8 +67,8 @@ export default defineIgloo({ dir: import.meta.dirname });
   "wrangler.config.ts": `export { default } from "@igloo-data/instance/wrangler";\n`,
   ".github/workflows/deploy.yml": `name: Deploy
 
-# Deploys this igloo instance on every push to main. Needs the repo secrets
-# CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
+# Deploys this igloo instance on every push to main, using the repo secret
+# CLOUDFLARE_API_TOKEN. Without the secret, it skips with a notice.
 on:
   push:
     branches: [main]
@@ -81,14 +81,20 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
     steps:
+      - name: No token, no deploy
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: echo "::notice::Not deploying. Add the CLOUDFLARE_API_TOKEN repo secret to deploy on push."
       - uses: actions/checkout@v4
+        if: env.CLOUDFLARE_API_TOKEN != ''
       - uses: oven-sh/setup-bun@v2
+        if: env.CLOUDFLARE_API_TOKEN != ''
       - run: bun install --frozen-lockfile
+        if: env.CLOUDFLARE_API_TOKEN != ''
       - run: bun run deploy
-        env:
-          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        if: env.CLOUDFLARE_API_TOKEN != ''
 `,
   ".gitignore": "node_modules/\n.cloudflare/\n.wrangler/\n",
   "README.md": `# My igloo
@@ -103,12 +109,7 @@ An [igloo](https://github.com/cldixon/igloo) instance. Its settings are in \`igl
 
 **Update igloo:** \`bun update @igloo-data/instance && bun run deploy\`. Migrations apply themselves.
 
-**Deploy on push:** \`.github/workflows/deploy.yml\` deploys every push to \`main\`. Push this folder to GitHub and add two repo secrets: \`CLOUDFLARE_API_TOKEN\` (a Cloudflare API token from the "Edit Cloudflare Workers" template, plus D1 Edit) and \`CLOUDFLARE_ACCOUNT_ID\`. With the GitHub CLI:
-
-\`\`\`bash
-gh secret set CLOUDFLARE_API_TOKEN
-gh secret set CLOUDFLARE_ACCOUNT_ID
-\`\`\`
+**Deploy on push (optional):** \`.github/workflows/deploy.yml\` deploys every push to \`main\` once this repo has the secret \`CLOUDFLARE_API_TOKEN\` (a Cloudflare API token from the "Edit Cloudflare Workers" template, plus D1 Edit). Until then it skips, and \`bun run deploy\` from your machine is all you need. To add it: \`gh secret set CLOUDFLARE_API_TOKEN\`, or the repo's Settings, then Secrets and variables, then Actions.
 `,
 };
 for (const [name, content] of Object.entries(files)) {

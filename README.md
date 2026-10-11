@@ -68,7 +68,7 @@ The folder is your instance: your settings plus a dependency on [`@igloo-data/in
 | `bun run dev`                                       | Run locally on http://127.0.0.1:8787 (`-- --local`: simulated bucket) |
 | `bun update @igloo-data/instance && bun run deploy` | Update igloo. Migrations apply themselves                             |
 
-**Deploy on push (optional).** The folder includes `.github/workflows/deploy.yml`, which deploys every push to `main`. Push the folder to GitHub and add two repo secrets: `CLOUDFLARE_API_TOKEN` (create one from the "Edit Cloudflare Workers" template and add D1 Edit) and `CLOUDFLARE_ACCOUNT_ID`. With the GitHub CLI, that's `gh secret set CLOUDFLARE_API_TOKEN` and `gh secret set CLOUDFLARE_ACCOUNT_ID`. CI never prints a setup code, since its logs may be public; claim the instance from your first local deploy.
+**Deploy on push (optional).** You don't need this: `bun run deploy` from your machine is enough. If you'd rather deploy on every push, push the folder to GitHub and add one repo secret, `CLOUDFLARE_API_TOKEN`: a Cloudflare API token from the "Edit Cloudflare Workers" template, plus D1 Edit. The folder's `.github/workflows/deploy.yml` then deploys each push to `main`; without the secret it skips with a notice. CI never prints a setup code, since its logs may be public.
 
 The instance has no preview deployments (`previewUrls: false`). Preview versions share production's bucket and database, and migrations apply themselves on first request, so a preview with a new migration would change the real database. Try changes with `bun run dev -- --local`.
 
@@ -192,7 +192,7 @@ bun run check                          # everything CI runs
 cd instance && bun run dev --local     # the instance on :8787 and its UI on :5173, simulated bucket
 ```
 
-To run a development instance against real resources, `bun run setup` in `instance/` writes a gitignored `instance/igloo.config.json`, and `bun run deploy` there builds from source. CI (`.github/workflows/ci.yml`) runs the checks on pull requests and on `main`. `.github/workflows/deploy-appview.yml` deploys the AppView from `main` (repo secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`; the token also needs Queues Edit).
+To run a development instance against real resources, `bun run setup` in `instance/` writes a gitignored `instance/igloo.config.json`, and `bun run deploy` there builds from source. CI (`.github/workflows/ci.yml`) runs the checks on pull requests and on `main`. `.github/workflows/deploy-appview.yml` deploys the AppView from `main`, using this repo's secret `CLOUDFLARE_API_TOKEN` (the "Edit Cloudflare Workers" template plus D1 Edit and Queues Edit).
 
 ### Releasing
 

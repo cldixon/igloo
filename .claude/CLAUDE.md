@@ -103,6 +103,12 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   `cf cli search "<what you want to do>"` (keep queries generic: no names,
   domains, IDs or tokens), then `<command> --help`. Don't explore by chaining
   `--help` calls.
+- **Minimize what an owner has to do.** Running an instance should take
+  `bun create igloo` and a Cloudflare login, nothing else. Before adding any
+  owner-facing requirement (a secret, a dashboard step, a config field),
+  check that it's truly needed; make optional things fail soft (the
+  scaffolded deploy workflow skips without its token rather than failing).
+  The token alone identifies the account, so no `CLOUDFLARE_ACCOUNT_ID`.
 - **The instance is released software; this repo doesn't deploy one.**
   `bun run --cwd instance pack` builds `@igloo-data/instance` (prebuilt
   Worker bundle from `cf build`, built UI, `defineIgloo` from
