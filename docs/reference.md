@@ -32,7 +32,7 @@ Each instance's settings live in its `igloo.config.json`. An environment variabl
 | `domain`   | `IGLOO_DOMAIN`      | Custom domain, on a zone in your account; without one, workers.dev |
 | `title`    | `IGLOO_TITLE`       | Site title                                                         |
 | `tagline`  | `IGLOO_TAGLINE`     | Site tagline                                                       |
-| `theme`    | `IGLOO_THEME`       | Default visual theme (`repo` or `index`)                           |
+| `theme`    | `IGLOO_THEME`       | Default index view: `repo` (pretty) or `index` (classic)           |
 | `appview`  | `IGLOO_APPVIEW_URL` | The AppView to notify after publishing (default the network's own) |
 
 `IGLOO_CONFIG` points at a different file. A deploy with neither a config file nor `IGLOO_BUCKET` fails rather than deploying defaults. The only secrets are `SETUP_CODE` and `OAUTH_SIGNING_KEY`, which the first deploy sets.
@@ -86,7 +86,11 @@ The target instance comes from `--url`, then `IGLOO_API_URL`, then `~/.igloo/con
 
 ## Web UI
 
-A directory browser in the style of classic server index pages, with two themes (**Repo**: cards and a modern repository feel; **Index**: an Apache `mod_autoindex` listing) and light and dark modes, chosen from the settings menu.
+Both the instance and the AppView are built from `@igloo/ui` (`packages/ui`), one design system of tokens and Svelte components, so a data dir looks the same in either place.
+
+- **Instance, public:** `/` lists the published data dirs (a pretty table, or `?view=classic` for a plain `Index of /` listing); `/<name>` is a data dir, with tabs for files, README, schema, query and record (`?tab=`).
+- **Instance, admin:** `/admin` signs in (or claims a new instance with its setup code) and lists data dirs; `/admin/new`, then `/admin/d/<name>` steps through files, details and review to publish; `/admin/settings` has the instance profile, owner, network, API tokens and storage.
+- **AppView:** `/` is the feed (with `/discover` and `/search` as tabs), `/d/<did>/<name>` a data dir, `/i/<did>/<host>` an instance, `/instances` every instance, `/m/<did>` a maintainer, `/deploy` how to run your own.
 
 ## Developing igloo
 

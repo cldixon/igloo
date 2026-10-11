@@ -155,8 +155,23 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   don't use that one in tests. Test DIDs must be valid (`did:plc:` + 24
   base32 characters, `a-z2-7`), or URI parsing rightly rejects them.
 - **Prettier** for formatting (`bun run format`). CI runs `format:check`.
-- SvelteKit (Svelte 5) for the web UI under `instance/web/`; Go for the CLI under
-  `cli/`.
+- **One design system, `@igloo/ui` (`packages/ui`)**, for the instance, the
+  AppView and a future docs site: Tailwind v4 tokens as CSS variables
+  (`src/igloo.css`), Svelte 5 components on Bits UI (dropdown menu, dialog),
+  Lucide icons. Pages compose its components (`Shell`, `DataDirView`,
+  `FileTable`, `ActivityRow`, `SignInForm`…) rather than styling their own;
+  a new visual direction changes the tokens, not the pages. Pass 1 is
+  structure only: black on white, system fonts, plain links, no accent. The
+  status slot (`StatusMark`) is where the lit/dark igloo goes.
+- Every color, font and radius goes through a token in `igloo.css`. Apps
+  import it after Tailwind (`@import "tailwindcss"; @import
+  "@igloo/ui/igloo.css";`), which also points Tailwind at the components.
+- SvelteKit (Svelte 5) for both web UIs: `instance/web/` is a client-rendered
+  SPA in Workers Static Assets; `appview/web/` is server-rendered inside the
+  AppView Worker (`appview/src/worker.ts` sends API paths to Hono, the rest to
+  SvelteKit). SvelteKit apps live in their own `web/` package because cf
+  detects SvelteKit in a package and switches to its own framework build. Go
+  for the CLI under `cli/`.
 
 ## Workflow
 
@@ -183,26 +198,35 @@ endpoint and CLI stay in place but aren't extended in phase 1.
   - `src/db/`: D1 migrations and the data dir store (publish rules live here).
   - `src/records.ts`: data dir → validated `dataDir` record.
   - `src/shared/`: types shared with the UI.
-  - `web/`: SvelteKit SPA (`@igloo/instance-web`); `/admin` is the admin panel.
+  - `web/`: SvelteKit SPA (`@igloo/instance-web`) on `@igloo/ui`: public
+    index and data dir pages, and `/admin` (sign-in or claim, data dirs, the
+    new data dir steps, settings).
   - `config.ts`: owner settings and `defineIgloo` (the Worker's cf config).
   - `cli/igloo.ts`: the `igloo` CLI (`setup`, `deploy`, `secrets`, `dev`).
   - `scripts/`: `pack.ts` (both published packages), `dev.ts` (Worker plus
     Vite). `package/`: files copied into `@igloo-data/instance`.
 - `appview/`: the AppView Worker (`@igloo/appview`), at `igloo.cldixon.dev`.
-  - `src/index.ts`: routes, `notifyRecord`, operator `/admin/*` (needs the
-    `ADMIN_TOKEN` secret), queue and cron handlers.
+  - `src/worker.ts`: the entry; API paths to the Hono app, pages to SvelteKit.
+  - `src/index.ts`: the Hono API (`notifyRecord`, sign-in, `/api/search`,
+    operator `/admin/*`, which needs the `ADMIN_TOKEN` secret), queue and cron
+    handlers.
   - `src/indexer.ts`: re-fetch a record from its PDS, validate, index.
   - `src/jetstream.ts`: `JetstreamDO`. `src/reconcile.ts`: daily rebuild.
-  - `src/views.ts`: server-rendered pages (escape everything; records are
-    untrusted). `src/auth.ts`: viewer sign-in (identity only).
+  - `src/pages.ts`: what each page shows, read from the index (plain data,
+    tested without rendering). `web/`: the SvelteKit pages
+    (`@igloo/appview-web`), reading `src/` through the `$server` alias.
+    Records are untrusted: render them as text, never `{@html}`.
+    `src/auth.ts`: viewer sign-in (identity only).
 - `packages/lexicon/`: `@igloo/lexicon`, NSIDs, record schemas (zod) and
   validation, AT URIs. `lexicons/` has the same records as Lexicon JSON, for
   publishing at the reset; a test keeps the two in step.
 - `packages/query/`: `@igloo/query`, the DuckDB-WASM loader, `measureFile`
-  and the query panel, shared by both UIs. `loadDuckDB`, `mountQueryPanel`
-  and `measureFile` must stay self-contained (no module-scope references):
-  the AppView ships them with `toString()`. `types.d.ts` declares the API
-  without DOM types so Workers can import it.
+  and the query panel, used through `@igloo/ui`'s `QueryPanel`. `loadDuckDB`,
+  `mountQueryPanel` and `measureFile` are self-contained (no module-scope
+  references). `types.d.ts` declares the API without DOM types so Worker code
+  can import it.
+- `packages/ui/`: `@igloo/ui`, the design system (tokens, base styles,
+  components, formatting, README markdown rendering that escapes HTML).
 - `packages/platform/`: `@igloo/platform`, shared Worker plumbing: D1
   migrations, settings, DID resolution, XRPC, OAuth (D1 stores, refresh
   lock, loopback client in dev), browser sessions. `./testing` has real
@@ -213,6 +237,7 @@ endpoint and CLI stay in place but aren't extended in phase 1.
 ## Local development notes
 
 - Dev servers: instance on `127.0.0.1:8787`, AppView on `127.0.0.1:8788`
+  (`bun run dev` in `appview/` builds its pages, then runs `cf dev`)
   (pinned in each `wrangler.config.ts`, so requests keep their loopback
   origin instead of being rewritten to the custom domain).
 - OAuth sign-in only works locally on `http://127.0.0.1:<port>` (AT Protocol

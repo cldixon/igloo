@@ -51,6 +51,15 @@ export interface IglooConfig {
   theme: VisualTheme;
   /** The owner's handle, once the instance is claimed. */
   owner?: string | null;
+  ownerDid?: string | null;
+  /** The instance profile (its instance record), once the owner saves one. */
+  name?: string | null;
+  description?: string | null;
+  instanceRecordUri?: string | null;
+  /** The AppView this instance announces to. */
+  appview?: string | null;
+  /** The collection data dir records are written to. */
+  dataDirCollection?: string;
 }
 
 /** A data dir as the admin API returns it. */

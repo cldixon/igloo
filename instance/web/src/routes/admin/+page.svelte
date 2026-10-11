@@ -1,16 +1,25 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { page } from "$app/state";
   import type { DataDir } from "@igloo/shared";
   import {
-    admin,
-    auth,
-    type ApiToken,
-    type AuthStatus,
-    type InstanceProfile,
-    type NetworkStatus,
-  } from "$lib/admin";
-  import { formatBytes } from "$lib/utils";
-  import { siteName } from "$lib/theme";
+    Button,
+    Dialog,
+    EmptyState,
+    Loading,
+    Notice,
+    Section,
+    SignInForm,
+    StatusMark,
+    formatBytes,
+    formatDate,
+    plural,
+    shortDid,
+  } from "@igloo/ui";
+  import { admin, auth } from "$lib/admin";
+  import { instanceName } from "$lib/api";
+
+  let { data } = $props();
 
   const ERRORS: Record<string, string> = {
     sign_in_failed: "Sign-in didn't complete. Try again.",
@@ -18,51 +27,35 @@
     unclaimed: "This instance hasn't been claimed yet. Sign in with the setup code.",
   };
 
-  let status = $state<AuthStatus | null>(null);
+  let status = $derived(data.status);
   let error = $state<string | null>(null);
 
-  // Sign-in form
+  // Sign-in
   let handle = $state("");
   let setupCode = $state("");
   let signingIn = $state(false);
 
-  // Dashboard
-  let dataDirs = $state<DataDir[]>([]);
+  // Data dirs
+  let dataDirs = $state<DataDir[] | null>(null);
   let folders = $state<string[]>([]);
-  let network = $state<NetworkStatus | null>(null);
-  let instance = $state<InstanceProfile | null>(null);
-  let instanceName = $state("");
-  let instanceDescription = $state("");
-  let newSlug = $state("");
-  let newTitle = $state("");
+  let filter = $state("");
   let busy = $state(false);
-  let tokens = $state<ApiToken[]>([]);
-  let tokenName = $state("");
-  let tokenDays = $state(90);
-  let newToken = $state<string | null>(null);
+  let removing = $state<DataDir | null>(null);
+  let unpublishing = $state<DataDir | null>(null);
 
-  onMount(async () => {
-    const reason = new URL(location.href).searchParams.get("error");
+  onMount(() => {
+    const reason = page.url.searchParams.get("error");
     if (reason) error = ERRORS[reason] ?? "Sign-in failed.";
-    status = await auth.status();
-    if (status.signedIn) await loadDashboard();
   });
 
-  async function loadDashboard() {
-    const [list, found, net, inst, tok] = await Promise.all([
-      admin.list(),
-      admin.folders(),
-      admin.network(),
-      admin.instance(),
-      admin.tokens(),
-    ]);
-    tokens = tok.tokens;
+  $effect(() => {
+    if (status?.signedIn && dataDirs === null) void load();
+  });
+
+  async function load() {
+    const [list, found] = await Promise.all([admin.list(), admin.folders()]);
     dataDirs = list.dataDirs;
     folders = found.folders;
-    network = net;
-    instance = inst.instance;
-    instanceName = instance.name ?? "";
-    instanceDescription = instance.description ?? "";
   }
 
   async function run(work: () => Promise<unknown>) {
@@ -90,257 +83,195 @@
     }
   }
 
-  const signOut = () =>
+  const adopt = (folder: string) =>
     run(async () => {
-      await auth.logout();
-      location.href = "/admin";
+      await admin.create(folder);
+      location.href = `/admin/d/${folder}`;
     });
 
-  const create = (slug: string, title?: string) =>
+  const confirmRemove = () =>
     run(async () => {
-      await admin.create(slug, { title });
-      location.href = `/admin/d/${slug}`;
+      await admin.remove(removing!.slug);
+      removing = null;
+      await load();
     });
 
-  const createToken = () =>
+  const confirmUnpublish = () =>
     run(async () => {
-      newToken = (await admin.createToken(tokenName.trim(), tokenDays)).token;
-      tokenName = "";
-      tokens = (await admin.tokens()).tokens;
+      await admin.unpublish(unpublishing!.slug);
+      unpublishing = null;
+      await load();
     });
 
-  const revokeToken = (t: ApiToken) => {
-    if (!confirm(`Revoke "${t.name}"? Anything using it stops working.`)) return;
-    return run(async () => {
-      await admin.revokeToken(t.id);
-      tokens = (await admin.tokens()).tokens;
-    });
-  };
-
-  const saveInstance = () =>
-    run(async () => {
-      instance = (await admin.saveInstance(instanceName, instanceDescription)).instance;
-    });
+  let shown = $derived(
+    (dataDirs ?? []).filter(
+      (d) =>
+        !filter.trim() ||
+        [d.slug, d.title ?? ""].some((s) => s.toLowerCase().includes(filter.trim().toLowerCase())),
+    ),
+  );
+  let published = $derived((dataDirs ?? []).filter((d) => d.status === "published").length);
+  const size = (d: DataDir) => d.files.reduce((s, f) => s + f.size, 0);
+  const rkey = (uri: string) => uri.split("/").pop() ?? uri;
 </script>
 
-<svelte:head><title>Admin · {$siteName}</title></svelte:head>
+<svelte:head><title>Admin · {instanceName(data.config)}</title></svelte:head>
 
-<div class="admin">
-  {#if !status}
-    <p class="muted">Loading…</p>
-  {:else if !status.signedIn}
-    <section class="panel" style="max-width: 30rem">
-      <h1>Sign in</h1>
-      {#if !status.claimed}
-        <p class="muted">
-          This instance hasn't been claimed. Sign in with your AT Protocol account and the setup
-          code from deploying it; that account becomes the owner.
-        </p>
-      {:else}
-        <p class="muted">Sign in with the account that owns this instance.</p>
-      {/if}
-      <form onsubmit={signIn} style="display: grid; gap: 0.75rem">
-        <label>
-          Handle
-          <input
-            bind:value={handle}
-            placeholder="you.bsky.social"
-            autocomplete="username"
-            required
-          />
-        </label>
+{#if !status}
+  <Notice tone="error" title="Couldn't reach this instance's API">Reload to try again.</Notice>
+{:else if !status.signedIn}
+  <div class="grid max-w-form gap-4">
+    {#if !status.claimed}
+      <h1 class="text-page font-semibold">Claim this igloo</h1>
+      <p>
+        This instance has no owner yet. Sign in with your AT Protocol account and the setup code
+        from deploying it; that account becomes its admin.
+      </p>
+    {:else}
+      <h1 class="text-page font-semibold">Sign in</h1>
+    {/if}
+    <SignInForm bind:handle onsubmit={signIn} {error} busy={signingIn}>
+      {#snippet fields()}
         {#if !status.claimed}
-          <label>
-            Setup code
-            <input bind:value={setupCode} autocomplete="off" required />
+          <label class="grid gap-1">
+            <span class="text-meta">Setup code</span>
+            <input class="input data" bind:value={setupCode} autocomplete="off" required />
+            <span class="text-meta text-muted"
+              >Printed by <code class="data">igloo deploy</code>, and in the Worker's logs.</span
+            >
           </label>
         {/if}
-        {#if error}<p class="error">{error}</p>{/if}
-        <div class="row">
-          <button class="primary" disabled={signingIn}
-            >{signingIn ? "Redirecting…" : "Sign in"}</button
-          >
-        </div>
-      </form>
-    </section>
-  {:else}
-    <div class="row">
-      <h1>Admin</h1>
-      <span class="spacer"></span>
-      <code class="muted">{status.owner}</code>
-      <button onclick={signOut} disabled={busy}>Sign out</button>
+      {/snippet}
+      {#snippet note()}
+        {#if status.claimed}
+          Owner: <code class="data">{status.owner ? shortDid(status.owner) : "-"}</code>. Only this
+          account can administer the instance. Everyone else: <a href="/">browse the index</a>.
+        {:else}
+          You'll be redirected to your PDS to authorize. No email, no password. The setup code works
+          once; after that this page is a normal sign-in.
+        {/if}
+      {/snippet}
+    </SignInForm>
+  </div>
+{:else}
+  <div class="grid gap-6">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <h1 class="text-page font-semibold">Data dirs</h1>
+      <Button variant="primary" href="/admin/new" class="ml-auto">+ New data dir</Button>
     </div>
 
-    {#if error}<p class="error">{error}</p>{/if}
+    {#if error}<Notice tone="error">{error}</Notice>{/if}
 
-    <section class="panel">
-      <div class="row">
-        <h2>Data dirs</h2>
-        <span class="spacer"></span>
-        {#if network}
-          <span class="muted"
-            >{network.dataDirs.published} of {network.dataDirs.total} published · {formatBytes(
-              network.storageBytes,
-            )}</span
-          >
-        {/if}
-      </div>
-      {#if dataDirs.length === 0}
-        <p class="muted">
-          No data dirs yet. Create one below, or add a folder already in the bucket.
-        </p>
-      {:else}
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Name</th><th>Title</th><th>Files</th><th>Status</th></tr></thead>
-            <tbody>
-              {#each dataDirs as d (d.slug)}
-                <tr>
-                  <td><a class="link mono" href="/admin/d/{d.slug}">{d.slug}</a></td>
-                  <td>{d.title ?? ""}</td>
-                  <td>{d.files.length}</td>
-                  <td><span class="status {d.status}">{d.status}</span></td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {/if}
-      <form
-        class="row"
-        onsubmit={(e) => {
-          e.preventDefault();
-          create(newSlug.trim(), newTitle.trim() || undefined);
-        }}
-      >
+    {#if dataDirs === null}
+      <Loading />
+    {:else if dataDirs.length === 0}
+      <EmptyState title="Nothing in here yet">
+        Your igloo is built. Make a data dir, add its files, then publish it to the network.
+        {#snippet action()}<Button href="/admin/new">+ New data dir</Button>{/snippet}
+      </EmptyState>
+    {:else}
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         <input
-          bind:value={newSlug}
-          placeholder="name, e.g. wikipedia-pageviews"
-          style="flex: 1 1 14rem"
-          required
+          class="input max-w-60"
+          type="search"
+          bind:value={filter}
+          placeholder="filter…"
+          aria-label="Filter data dirs"
         />
-        <input bind:value={newTitle} placeholder="Title (optional)" style="flex: 1 1 14rem" />
-        <button class="primary" disabled={busy}>New data dir</button>
-      </form>
-      {#if folders.length > 0}
-        <div class="row">
-          <span class="muted">Folders in the bucket:</span>
-          {#each folders as folder (folder)}
-            <button onclick={() => create(folder)} disabled={busy} title="Make {folder}/ a data dir"
-              >+ {folder}/</button
-            >
-          {/each}
-        </div>
-      {/if}
-    </section>
-
-    <section class="panel">
-      <h2>Instance profile</h2>
-      <p class="muted">
-        Published as this instance's record, so the feed can name it. Saving updates the record.
-      </p>
-      <label>Name <input bind:value={instanceName} placeholder="cldixon's igloo" /></label>
-      <label
-        >Description
-        <input
-          bind:value={instanceDescription}
-          placeholder="Small public datasets I've collected or built."
-        /></label
-      >
-      <div class="row">
-        <button class="primary" onclick={saveInstance} disabled={busy || !instanceName.trim()}
-          >Save and publish</button
+        <span class="text-meta text-muted"
+          >{published} published · {dataDirs.length - published} draft</span
         >
-        {#if instance?.recordUri}<code class="muted">{instance.recordUri}</code>{/if}
       </div>
-    </section>
-
-    <section class="panel">
-      <h2>API tokens</h2>
-      <p class="muted">
-        For scripts and agents: send <code>Authorization: Bearer &lt;token&gt;</code> to the admin
-        API, or to <code>/mcp</code> for its write tools. Tokens can do anything you can here except manage
-        tokens.
-      </p>
-      {#if newToken}
-        <div class="panel" style="background: var(--bg-secondary)">
-          <strong>Copy this token now. It won't be shown again.</strong>
-          <code style="user-select: all">{newToken}</code>
-          <div class="row"><button onclick={() => (newToken = null)}>Done</button></div>
-        </div>
-      {/if}
-      {#if tokens.length > 0}
-        <div class="table-wrap">
-          <table>
-            <thead
-              ><tr><th>Name</th><th>Token</th><th>Expires</th><th>Last used</th><th></th></tr
-              ></thead
-            >
-            <tbody>
-              {#each tokens as t (t.id)}
-                <tr>
-                  <td>{t.name}</td>
-                  <td class="mono">{t.prefix}…</td>
-                  <td>{t.expiresAt.slice(0, 10)}</td>
-                  <td>{t.lastUsedAt ? t.lastUsedAt.slice(0, 10) : "never"}</td>
-                  <td style="text-align: right"
-                    ><button class="danger" onclick={() => revokeToken(t)} disabled={busy}
-                      >Revoke</button
-                    ></td
-                  >
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {/if}
-      <form
-        class="row"
-        onsubmit={(e) => {
-          e.preventDefault();
-          createToken();
-        }}
-      >
-        <input
-          bind:value={tokenName}
-          placeholder="Name, e.g. laptop script"
-          style="flex: 1 1 14rem"
-          required
-        />
-        <select bind:value={tokenDays} style="width: auto">
-          <option value={30}>30 days</option>
-          <option value={90}>90 days</option>
-          <option value={365}>1 year</option>
-        </select>
-        <button class="primary" disabled={busy}>Create token</button>
-      </form>
-    </section>
-
-    {#if network}
-      <section class="panel">
-        <h2>Network</h2>
-        <div class="table-wrap">
-          <table>
-            <tbody>
+      <div class="table-scroll">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">name</th>
+              <th scope="col">status</th>
+              <th scope="col" class="num">files</th>
+              <th scope="col" class="num">size</th>
+              <th scope="col">updated</th>
+              <th scope="col">record</th>
+              <th scope="col"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each shown as d (d.slug)}
               <tr>
-                <td class="muted">PDS connection</td>
-                <td>
-                  {#if network.pds.ok}connected{:else}<span class="error">{network.pds.error}</span
-                    >{/if}
+                <td class="min-w-40">
+                  <a href="/admin/d/{d.slug}" class="data break-all">{d.slug}</a>
+                  {#if d.title}<div class="text-muted">{d.title}</div>{/if}
+                </td>
+                <td
+                  ><StatusMark
+                    status={d.status === "published" ? "live" : "dark"}
+                    label={d.status}
+                  /></td
+                >
+                <td class="num data">{d.files.length}</td>
+                <td class="num data">{formatBytes(size(d))}</td>
+                <td class="data nowrap">{formatDate(d.updatedAt)}</td>
+                <td class="data nowrap"
+                  >{#if d.recordUri}<span title={d.recordUri}>…/{rkey(d.recordUri)}</span
+                    >{:else}<span class="text-muted">-</span>{/if}</td
+                >
+                <td class="num">
+                  {#if d.status === "published"}
+                    <a href="/admin/d/{d.slug}?step=details">edit</a> ·
+                    <button class="underline" disabled={busy} onclick={() => (unpublishing = d)}
+                      >unpublish</button
+                    >
+                  {:else}
+                    <a href="/admin/d/{d.slug}">continue</a> ·
+                    <button class="underline" disabled={busy} onclick={() => (removing = d)}
+                      >remove</button
+                    >
+                  {/if}
                 </td>
               </tr>
-              <tr>
-                <td class="muted">AppView</td>
-                <td><a class="link" href={network.appview}>{network.appview}</a></td>
-              </tr>
-              <tr>
-                <td class="muted">Instance record key</td>
-                <td><code>{network.instanceRkey}</code></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
+            {/each}
+          </tbody>
+        </table>
+      </div>
     {/if}
-  {/if}
-</div>
+
+    {#if folders.length > 0}
+      <Section
+        title="Found in the bucket"
+        description="Folders in this instance's R2 bucket that aren't data dirs yet. Make one into a data dir to hash its files and publish it."
+      >
+        <ul class="grid gap-1">
+          {#each folders as folder (folder)}
+            <li class="flex items-center gap-3">
+              <code class="data">{folder}/</code>
+              <Button size="sm" disabled={busy} onclick={() => adopt(folder)}>make data dir</Button>
+            </li>
+          {/each}
+        </ul>
+      </Section>
+    {/if}
+  </div>
+
+  <Dialog
+    open={removing !== null}
+    onOpenChange={(o: boolean) => !o && (removing = null)}
+    title="Remove {removing?.slug}?"
+    description="The draft goes away. Its files stay in the bucket, so you can make it a data dir again."
+  >
+    {#snippet footer()}
+      <Button onclick={() => (removing = null)}>Cancel</Button>
+      <Button variant="primary" disabled={busy} onclick={confirmRemove}>Remove draft</Button>
+    {/snippet}
+  </Dialog>
+  <Dialog
+    open={unpublishing !== null}
+    onOpenChange={(o: boolean) => !o && (unpublishing = null)}
+    title="Unpublish {unpublishing?.slug}?"
+    description="The record is deleted from your AT Protocol repo and the data dir leaves the feed. Files stay in your bucket; anyone who already downloaded them keeps their copy."
+  >
+    {#snippet footer()}
+      <Button onclick={() => (unpublishing = null)}>Cancel</Button>
+      <Button variant="primary" disabled={busy} onclick={confirmUnpublish}>Unpublish</Button>
+    {/snippet}
+  </Dialog>
+{/if}

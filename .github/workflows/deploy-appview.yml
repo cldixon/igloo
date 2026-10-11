@@ -41,7 +41,8 @@ jobs:
       - run: bun install --frozen-lockfile
         if: env.CLOUDFLARE_API_TOKEN != ''
 
+      # Builds the pages (SvelteKit, appview/web) and then deploys the Worker.
       - name: Deploy
         if: env.CLOUDFLARE_API_TOKEN != ''
         working-directory: appview
-        run: bunx cf deploy
+        run: bun run deploy

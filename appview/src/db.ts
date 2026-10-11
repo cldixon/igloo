@@ -427,3 +427,52 @@ export async function searchDataDirs(
     .all<DataDirRow>();
   return results.map(toDataDir);
 }
+
+/** An instance with what the index knows about its published data dirs. */
+export type InstanceSummary = IndexedInstance & {
+  dataDirs: number;
+  bytes: number;
+  lastPublished: string | null;
+};
+
+/** Every indexed instance, with data dir counts and sizes, most recently published first. */
+export async function instanceDirectory(db: D1Database): Promise<InstanceSummary[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT i.*,
+         (SELECT count(*) FROM data_dirs d WHERE d.did = i.did AND d.instance_url = i.url) AS dirs,
+         (SELECT ifnull(sum(json_extract(f.value, '$.size')), 0)
+            FROM data_dirs d, json_each(d.record, '$.files') f
+            WHERE d.did = i.did AND d.instance_url = i.url) AS bytes,
+         (SELECT max(d.created_at) FROM data_dirs d
+            WHERE d.did = i.did AND d.instance_url = i.url) AS last_published
+       FROM instances i
+       ORDER BY last_published IS NULL, last_published DESC, i.indexed_at DESC`,
+    )
+    .all<InstanceRow & { dirs: number; bytes: number; last_published: string | null }>();
+  return results.map((r) => ({
+    ...toInstance(r),
+    dataDirs: r.dirs,
+    bytes: r.bytes,
+    lastPublished: r.last_published,
+  }));
+}
+
+/** The most used tags, for browsing by topic. */
+export async function topTags(db: D1Database, limit = 24) {
+  const { results } = await db
+    .prepare(
+      "SELECT tag, count(*) AS n FROM data_dir_tags GROUP BY tag ORDER BY n DESC, tag LIMIT ?",
+    )
+    .bind(limit)
+    .all<{ tag: string; n: number }>();
+  return results.map((r) => ({ tag: r.tag, count: r.n }));
+}
+
+/** Any one data dir, for "show me something". */
+export async function randomDataDir(db: D1Database): Promise<IndexedDataDir | null> {
+  const row = await db
+    .prepare("SELECT * FROM data_dirs ORDER BY random() LIMIT 1")
+    .first<DataDirRow>();
+  return row ? toDataDir(row) : null;
+}

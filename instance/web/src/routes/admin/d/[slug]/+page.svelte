@@ -1,48 +1,88 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { page } from "$app/state";
+  import { goto } from "$app/navigation";
   import type { DataDir } from "@igloo/shared";
-  import { admin, auth, feedUrl, LICENSES, uploadFile, type DataDirDetail } from "$lib/admin";
-  import { formatBytes, shortHash } from "$lib/utils";
-  import { siteName } from "$lib/theme";
-  import { DUCKDB_CDN, loadDuckDB, measureFile } from "@igloo/query";
+  import {
+    Button,
+    CopyButton,
+    Dialog,
+    Field,
+    FileTable,
+    Loading,
+    MetaList,
+    Notice,
+    Section,
+    StatusMark,
+    Stepper,
+    TabNav,
+    formatBytes,
+    hostOf,
+    plural,
+    shortHash,
+  } from "@igloo/ui";
+  import { DUCKDB_CDN, guessFormat, loadDuckDB, measureFile } from "@igloo/query";
+  import { admin, feedUrl, LICENSES, uploadFile, type DataDirDetail } from "$lib/admin";
+  import { guessLicense, type PickedFile } from "$lib/files";
+  import DropZone from "$lib/components/DropZone.svelte";
+
+  let { data } = $props();
 
   const slug = page.params.slug as string;
+  const README = "README.md";
+  const MEASURABLE = ["csv", "tsv", "json", "jsonl"];
 
   let detail = $state<DataDirDetail | null>(null);
-  let appview = $state("");
+  let loadError = $state<string | null>(null);
   let error = $state<string | null>(null);
   let notice = $state<string | null>(null);
   let busy = $state(false);
+  let justPublished = $state(false);
+  let confirmUnpublish = $state(false);
+  let confirmRemove = $state(false);
 
+  // Details form
   let title = $state("");
   let description = $state("");
   let license = $state("");
+  let customLicense = $state("");
   let tags = $state("");
   let readme = $state("");
 
+  // Uploads in progress
+  type Upload = { path: string; size: number; progress: number; sha256?: string; error?: string };
+  let uploads = $state<Upload[]>([]);
   let subfolder = $state("");
-  let uploads = $state<{ name: string; progress: number; error?: string }[]>([]);
 
   let dir = $derived(detail?.dataDir);
   let published = $derived(dir?.status === "published");
+  let step = $derived(page.url.searchParams.get("step") ?? (published ? "details" : "files"));
+  let total = $derived(dir?.files.reduce((s, f) => s + f.size, 0) ?? 0);
+  let licenseValue = $derived(license === "other" ? customLicense.trim() : license);
+  let recordUri = $derived(
+    dir?.recordUri ??
+      `at://${data.config.ownerDid ?? "did:…"}/${data.config.dataDirCollection ?? "…"}/${slug}`,
+  );
+  let onFeed = $derived(
+    dir?.recordUri && data.config.appview ? feedUrl(data.config.appview, dir.recordUri) : null,
+  );
+  let publicUrl = $derived(`${location.origin}/${slug}`);
 
   onMount(async () => {
-    const status = await auth.status();
-    if (!status.signedIn) {
-      location.href = "/admin";
-      return;
+    try {
+      setDetail(await admin.get(slug));
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : String(e);
     }
-    const [d, net] = await Promise.all([admin.get(slug), admin.network()]);
-    appview = net.appview;
-    setDetail(d);
   });
 
   function setDetail(d: DataDirDetail) {
     detail = d;
     title = d.dataDir.title ?? "";
     description = d.dataDir.description ?? "";
-    license = d.dataDir.license ?? "";
+    const l = d.dataDir.license ?? "";
+    license = !l || LICENSES.includes(l) ? l : "other";
+    customLicense = LICENSES.includes(l) ? "" : l;
     tags = d.dataDir.tags.join(", ");
     readme = d.readme ?? "";
   }
@@ -68,52 +108,68 @@
     }
   }
 
-  const saveDetails = () =>
-    run(
-      async () => {
-        const fields: {
-          title: string;
-          description: string;
-          license?: string;
-          tags: string[];
-        } = {
-          title,
-          description,
-          tags: tags
-            .split(",")
-            .map((t) => t.trim())
-            .filter(Boolean),
-        };
-        if (!published) fields.license = license;
-        await refresh((await admin.update(slug, fields)).dataDir);
-      },
-      published ? "Saved, and the record was updated." : "Saved.",
-    );
+  const stepHref = (s: string) => `/admin/d/${slug}?step=${s}`;
 
-  const saveReadme = () =>
-    run(async () => {
-      if (readme.trim()) await refresh((await admin.saveReadme(slug, readme)).dataDir);
-      else await refresh((await admin.deleteReadme(slug)).dataDir);
-    }, "README saved.");
+  // --- Files ------------------------------------------------------------------
 
-  const publish = () =>
-    run(
-      async () => refresh((await admin.publish(slug)).dataDir),
-      "Published. It should be on the feed within seconds.",
-    );
+  async function addFiles(picked: PickedFile[]) {
+    const prefix = subfolder.trim().replace(/^\/+|\/+$/g, "");
+    const queue = picked.map((p) => ({
+      ...p,
+      path: prefix ? `${prefix}/${p.path}` : p.path,
+    }));
+    uploads = queue.map((q) => ({ path: q.path, size: q.file.size, progress: 0 }));
+    busy = true;
+    error = null;
+    notice = null;
+    let last: DataDir | undefined;
+    const found: string[] = [];
+    for (const [i, q] of queue.entries()) {
+      const u = uploads[i]!;
+      try {
+        if (q.path === README) {
+          // The README isn't a data file; it is the data dir's description.
+          last = (await admin.saveReadme(slug, await q.file.text())).dataDir;
+          found.push("README.md is now the README.");
+        } else {
+          if (/^licen[cs]e(\.(md|txt))?$/i.test(q.path) && !licenseValue) {
+            const guess = guessLicense(await q.file.text());
+            if (guess) {
+              await admin.update(slug, { license: guess });
+              found.push(`LICENSE looks like ${guess}; set as the license.`);
+            }
+          }
+          last = await uploadFile(slug, q.path, q.file, (p) => (u.progress = p));
+          u.sha256 = last.files.find((f) => f.path === q.path)?.sha256;
+        }
+        u.progress = 1;
+        u.sha256 ??= "";
+      } catch (e) {
+        u.error = e instanceof Error ? e.message : String(e);
+      }
+    }
+    busy = false;
+    await refresh(last);
+    if (found.length > 0) notice = found.join(" ");
+    if (uploads.every((x) => !x.error)) uploads = [];
+  }
 
-  const unpublish = () => {
-    if (
-      !confirm("Unpublish? The record is deleted from your repo and the data dir leaves the feed.")
-    )
-      return;
-    return run(async () => refresh((await admin.unpublish(slug)).dataDir), "Unpublished.");
-  };
+  const uploadStatus = (u: Upload) =>
+    u.error
+      ? `failed: ${u.error}`
+      : u.sha256 !== undefined
+        ? u.sha256
+          ? `done · sha256 ${shortHash(u.sha256)}`
+          : "done"
+        : u.progress < 1
+          ? `uploading ${Math.floor(u.progress * 100)}%`
+          : "hashing…";
 
-  const deleteFile = (path: string) => {
-    if (!confirm(`Delete ${path}? It is removed from the bucket too.`)) return;
-    return run(async () => refresh((await admin.deleteFile(slug, path)).dataDir));
-  };
+  const deleteFile = (path: string) =>
+    run(async () => refresh((await admin.deleteFile(slug, path)).dataDir), `Deleted ${path}.`);
+
+  const register = (paths: string[]) =>
+    run(async () => refresh((await admin.register(slug, paths)).dataDir), "Added and hashed.");
 
   /** Measure a CSV or JSON file with DuckDB in this browser, and save it as the file's schema. */
   const measure = (path: string, format: string) =>
@@ -124,6 +180,31 @@
       await refresh((await admin.setProfile(slug, { path, format, rows, schema })).dataDir);
     }, `Measured ${path}.`);
 
+  // --- Details ----------------------------------------------------------------
+
+  const saveDetails = () =>
+    run(
+      async () => {
+        const fields: { title: string; description: string; license?: string; tags: string[] } = {
+          title,
+          description,
+          tags: tags
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean),
+        };
+        if (!published) fields.license = licenseValue;
+        let updated = (await admin.update(slug, fields)).dataDir;
+        if (readme !== (detail?.readme ?? "")) {
+          updated = readme.trim()
+            ? (await admin.saveReadme(slug, readme)).dataDir
+            : (await admin.deleteReadme(slug)).dataDir;
+        }
+        await refresh(updated);
+      },
+      published ? "Saved, and the record was updated." : "Saved.",
+    );
+
   /** Fill the README (and an empty description and tags) with an AI draft, unsaved. */
   const draft = () =>
     run(async () => {
@@ -133,227 +214,420 @@
       if (!tags.trim()) tags = draft.tags.join(", ");
     }, "Drafted from the measured files. Review it, then save what you keep.");
 
-  const register = (paths: string[]) =>
-    run(async () => refresh((await admin.register(slug, paths)).dataDir), "Added and hashed.");
+  // --- Publish ----------------------------------------------------------------
 
-  const removeDir = () => {
-    if (!confirm(`Remove the data dir "${slug}"? Its files stay in the bucket.`)) return;
-    return run(async () => {
+  const publish = () =>
+    run(async () => {
+      await refresh((await admin.publish(slug)).dataDir);
+      justPublished = true;
+    });
+
+  const unpublish = () =>
+    run(async () => {
+      await refresh((await admin.unpublish(slug)).dataDir);
+      confirmUnpublish = false;
+      justPublished = false;
+    }, "Unpublished. The record is gone and it has left the feed.");
+
+  const removeDir = () =>
+    run(async () => {
       await admin.remove(slug);
       location.href = "/admin";
     });
-  };
 
-  async function upload(event: Event) {
-    const input = event.currentTarget as HTMLInputElement;
-    const files = [...(input.files ?? [])];
-    input.value = "";
-    const prefix = subfolder.trim().replace(/^\/+|\/+$/g, "");
-    uploads = files.map((f) => ({ name: prefix ? `${prefix}/${f.name}` : f.name, progress: 0 }));
-    busy = true;
-    error = null;
-    let last: DataDir | undefined;
-    for (const [i, file] of files.entries()) {
-      try {
-        last = await uploadFile(slug, uploads[i]!.name, file, (p) => (uploads[i]!.progress = p));
-        uploads[i]!.progress = 1;
-      } catch (e) {
-        uploads[i]!.error = e instanceof Error ? e.message : String(e);
-      }
-    }
-    busy = false;
-    await refresh(last);
-    if (uploads.every((u) => !u.error)) uploads = [];
-  }
+  let steps = $derived([
+    { label: "name", state: "done" as const },
+    {
+      label: "files",
+      href: stepHref("files"),
+      state: step === "files" ? ("current" as const) : ("done" as const),
+    },
+    {
+      label: "details",
+      href: stepHref("details"),
+      state:
+        step === "details"
+          ? ("current" as const)
+          : step === "review"
+            ? ("done" as const)
+            : ("todo" as const),
+    },
+    {
+      label: "review",
+      href: stepHref("review"),
+      state: step === "review" ? ("current" as const) : ("todo" as const),
+    },
+  ]);
 </script>
 
-<svelte:head><title>{slug} · Admin · {$siteName}</title></svelte:head>
+<svelte:head><title>{slug} · admin</title></svelte:head>
 
-<div class="admin">
-  <div class="row">
-    <a class="link" href="/admin">← Admin</a>
-    <span class="spacer"></span>
-    <a class="link" href="/{slug}">Public listing</a>
-  </div>
-
-  {#if !dir}
-    {#if error}<p class="error">{error}</p>{:else}<p class="muted">Loading…</p>{/if}
-  {:else}
-    <div class="row">
-      <h1 class="mono" style="font-size: 1.375rem">{slug}</h1>
-      <span class="status {dir.status}">{dir.status}</span>
-      <span class="spacer"></span>
+{#if loadError}
+  <Notice tone="error" title="Couldn't load {slug}">{loadError}</Notice>
+  <a href="/admin">Back to data dirs</a>
+{:else if !dir}
+  <Loading />
+{:else}
+  <div class="grid gap-6">
+    <div class="grid gap-3">
       {#if published}
-        <button onclick={unpublish} disabled={busy}>Unpublish</button>
+        <TabNav
+          label="Data dir"
+          current={step}
+          items={[
+            { id: "details", label: "Details", href: stepHref("details") },
+            { id: "files", label: "Files", href: stepHref("files"), count: dir.files.length },
+            { id: "review", label: "Record", href: stepHref("review") },
+          ]}
+        />
       {:else}
-        <button class="primary" onclick={publish} disabled={busy || dir.files.length === 0}
-          >Publish</button
-        >
+        <Stepper {steps} />
       {/if}
+      <div class="flex flex-wrap items-baseline gap-x-3 gap-y-2">
+        <h1 class="data text-page font-semibold break-all">{slug}</h1>
+        <StatusMark status={published ? "live" : "dark"} label={dir.status} />
+        <span class="ml-auto flex flex-wrap gap-x-4 text-meta">
+          {#if published}
+            <a href="/{slug}">public page</a>
+            {#if onFeed}<a href={onFeed}>on {hostOf(data.config.appview!)} ↗</a>{/if}
+          {/if}
+        </span>
+      </div>
     </div>
 
-    {#if error}<p class="error">{error}</p>{/if}
-    {#if notice}<p class="muted">{notice}</p>{/if}
+    {#if error}<Notice tone="error">{error}</Notice>{/if}
+    {#if notice}<Notice tone="success">{notice}</Notice>{/if}
 
-    {#if published && dir.recordUri}
-      <section class="panel">
-        <div class="row">
-          <code>{dir.recordUri}</code>
-          <span class="spacer"></span>
-          {#if appview}<a class="link" href={feedUrl(appview, dir.recordUri)}>On the feed →</a>{/if}
-        </div>
-        <p class="muted">
-          Files and license are fixed while published. Title, description and README can change;
-          each save updates the record.
-        </p>
-      </section>
-    {/if}
-
-    <section class="panel">
-      <h2>Details</h2>
-      <label>Title <input bind:value={title} maxlength="200" /></label>
-      <label>Description <input bind:value={description} maxlength="3000" /></label>
-      <label>Tags <input bind:value={tags} placeholder="hydrology, time-series" /></label>
-      <label>
-        License
-        <input
-          bind:value={license}
-          list="licenses"
-          placeholder="SPDX identifier, e.g. CC-BY-4.0"
-          disabled={published}
-        />
-        <datalist id="licenses">
-          {#each LICENSES as l (l)}<option value={l}></option>{/each}
-        </datalist>
-      </label>
-      <div class="row">
-        <button class="primary" onclick={saveDetails} disabled={busy}>Save</button>
-      </div>
-    </section>
-
-    <section class="panel">
-      <div class="row">
-        <h2>Files</h2>
-        <span class="spacer"></span>
-        <span class="muted"
-          >{dir.files.length} · {formatBytes(dir.files.reduce((s, f) => s + f.size, 0))}</span
-        >
-      </div>
-      {#if dir.files.length > 0}
-        <div class="table-wrap">
-          <table>
-            <thead
-              ><tr
-                ><th>Path</th><th>Size</th><th>Format</th><th>Rows</th><th>Columns</th><th
-                  >sha256</th
-                ><th></th></tr
-              ></thead
-            >
-            <tbody>
-              {#each dir.files as f (f.path)}
-                <tr>
-                  <td class="mono">{f.path}</td>
-                  <td>{formatBytes(f.size)}</td>
-                  <td class="mono">{f.format ?? ""}</td>
-                  <td>{f.rows != null ? f.rows.toLocaleString() : ""}</td>
-                  <td>
-                    {#if f.schema}
-                      <span
-                        class="mono"
-                        title={f.schema.map((c) => `${c.name} ${c.type}`).join("\n")}
-                        >{f.schema.length}</span
-                      >
-                    {:else if f.format && ["csv", "tsv", "json", "jsonl"].includes(f.format)}
-                      <button onclick={() => measure(f.path, f.format!)} disabled={busy}
-                        >Measure</button
-                      >
-                    {/if}
-                  </td>
-                  <td class="mono" title={f.sha256}>{shortHash(f.sha256)}</td>
-                  <td style="text-align: right">
-                    {#if !published}
-                      <button class="danger" onclick={() => deleteFile(f.path)} disabled={busy}
-                        >Delete</button
-                      >
-                    {/if}
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {:else}
-        <p class="muted">No data files yet.</p>
-      {/if}
-
-      {#if !published}
-        <div class="row">
-          <input
-            bind:value={subfolder}
-            placeholder="Subfolder (optional)"
-            style="flex: 0 1 14rem"
+    {#if step === "files"}
+      <!-- 1 · Files -------------------------------------------------------- -->
+      <Section title="Files">
+        {#snippet actions()}
+          <span class="data text-muted"
+            >{plural(dir.files.length, "file")} · {formatBytes(total)}</span
+          >
+        {/snippet}
+        {#if published}
+          <p class="text-meta text-muted">
+            Files are fixed while the data dir is published, so its record keeps matching them.
+            Unpublish to change them.
+          </p>
+        {:else}
+          <p class="data text-muted">→ {location.host}/{slug}</p>
+          <DropZone
+            onfiles={addFiles}
+            disabled={busy}
+            hint="csv, tsv, parquet, json, jsonl, arrow, or anything else · large files upload in 50 MB parts · README.md becomes the README"
           />
-          <label class="button" style="display: inline-block; color: inherit">
-            Upload files…
-            <input type="file" multiple onchange={upload} disabled={busy} hidden />
+          <label class="flex flex-wrap items-center gap-2 text-meta">
+            <span class="text-muted">Put new files in a subfolder (optional)</span>
+            <input class="input data max-w-56" bind:value={subfolder} placeholder="2026/q3" />
           </label>
-          <span class="muted">Large files upload in 50 MB parts. Each is hashed after upload.</span>
-        </div>
-        {#each uploads as u (u.name)}
-          <div class="row">
-            <code>{u.name}</code>
-            {#if u.error}<span class="error">{u.error}</span>{:else}<progress value={u.progress}
-              ></progress>{/if}
-          </div>
-        {/each}
+        {/if}
 
-        {#if detail && detail.unregistered.length > 0}
-          <div style="display: grid; gap: 0.5rem">
-            <div class="row">
-              <span class="muted"
-                >Already in the bucket under {slug}/, not yet in the data dir:</span
+        {#if uploads.length > 0}
+          <div class="table-scroll">
+            <table class="table data-table">
+              <thead
+                ><tr><th>uploading</th><th class="num">size</th><th>type</th><th>status</th></tr
+                ></thead
               >
-              <span class="spacer"></span>
-              <button
-                onclick={() => register(detail!.unregistered.map((u) => u.path))}
-                disabled={busy}>Add all</button
-              >
-            </div>
-            {#each detail.unregistered as u (u.path)}
-              <div class="row">
-                <code>{u.path}</code>
-                <span class="muted">{formatBytes(u.size)}</span>
-                <button onclick={() => register([u.path])} disabled={busy}>Add</button>
-              </div>
-            {/each}
+              <tbody>
+                {#each uploads as u (u.path)}
+                  <tr>
+                    <td class="break-all">{u.path}</td>
+                    <td class="num">{formatBytes(u.size)}</td>
+                    <td class="nowrap"
+                      >{guessFormat(u.path) ?? (u.path === README ? "readme" : "-")}</td
+                    >
+                    <td class="nowrap" aria-live="polite">{uploadStatus(u)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
           </div>
         {/if}
+
+        {#if dir.files.length > 0}
+          <FileTable files={dir.files} columns={["size", "rows", "format", "sha256"]}>
+            {#snippet actions(f)}
+              <span class="inline-flex gap-2 font-sans">
+                {#if !f.schema && f.format && MEASURABLE.includes(f.format)}
+                  <button
+                    class="underline"
+                    disabled={busy}
+                    onclick={() => measure(f.path, f.format!)}>measure</button
+                  >
+                {/if}
+                {#if !published}
+                  <button class="underline" disabled={busy} onclick={() => deleteFile(f.path)}
+                    >remove</button
+                  >
+                {/if}
+              </span>
+            {/snippet}
+          </FileTable>
+          <p class="text-meta text-muted">
+            Each file is hashed (sha256) after it uploads; the hash goes in the record. Parquet
+            schemas are measured on upload; measure CSV and JSON here, in your browser.
+          </p>
+        {:else if uploads.length === 0}
+          <p class="text-meta text-muted">No data files yet.</p>
+        {/if}
+
+        {#if !published && detail && detail.unregistered.length > 0}
+          <div class="grid gap-2">
+            <div class="flex flex-wrap items-baseline gap-3">
+              <span class="text-meta"
+                >Already in the bucket under <code class="data">{slug}/</code>:</span
+              >
+              <Button
+                size="sm"
+                disabled={busy}
+                onclick={() => register(detail!.unregistered.map((u) => u.path))}>add all</Button
+              >
+            </div>
+            <ul class="grid gap-1 data">
+              {#each detail.unregistered as u (u.path)}
+                <li class="flex flex-wrap gap-3">
+                  <span class="break-all">{u.path}</span>
+                  <span class="text-muted">{formatBytes(u.size)}</span>
+                  <button class="underline" disabled={busy} onclick={() => register([u.path])}
+                    >add</button
+                  >
+                </li>
+              {/each}
+            </ul>
+          </div>
+        {/if}
+      </Section>
+
+      {#if !published}
+        <div class="flex flex-wrap justify-between gap-2 border-t border-line pt-4">
+          <Button href="/admin">Save draft</Button>
+          <Button variant="primary" href={stepHref("details")}>Next: details →</Button>
+        </div>
       {/if}
-    </section>
+    {:else if step === "details"}
+      <!-- 2 · Details ------------------------------------------------------ -->
+      <form
+        class="grid max-w-reading gap-5"
+        onsubmit={(e) => {
+          e.preventDefault();
+          saveDetails();
+        }}
+      >
+        <Field label="Title">
+          <input class="input" bind:value={title} maxlength="200" placeholder={slug} />
+        </Field>
+        <Field
+          label="Short description"
+          hint="Shown in feeds and listings. {description.length}/280{description.length > 280
+            ? ' — feeds cut it off here'
+            : ''}"
+        >
+          <textarea class="input" rows="3" bind:value={description} maxlength="3000"></textarea>
+        </Field>
+        <Field
+          label="README"
+          hint="Saved as {slug}/README.md. Markdown. Empty it and save to remove it."
+        >
+          <textarea
+            class="input code"
+            rows="12"
+            bind:value={readme}
+            placeholder={`# ${title || slug}\n\nWhat's in this data, where it came from, how to use it.`}
+          ></textarea>
+        </Field>
+        <div class="-mt-3 flex flex-wrap items-center gap-3 text-meta">
+          <Button size="sm" disabled={busy || dir.files.length === 0} onclick={draft}
+            >Draft with AI</Button
+          >
+          <span class="text-muted"
+            >Drafts the README, description and tags from the measured files. Nothing is saved until
+            you save.</span
+          >
+        </div>
+        <Field
+          label="License"
+          hint={published
+            ? "Fixed while published: people may already rely on it."
+            : "How others may use this data. An SPDX identifier."}
+        >
+          <select class="input" bind:value={license} disabled={published}>
+            <option value="">No license yet</option>
+            {#each LICENSES as l (l)}<option value={l}>{l}</option>{/each}
+            <option value="other">Other…</option>
+          </select>
+        </Field>
+        {#if license === "other"}
+          <Field label="Other license (SPDX identifier)">
+            <input
+              class="input data"
+              bind:value={customLicense}
+              disabled={published}
+              placeholder="CC-BY-3.0"
+            />
+          </Field>
+        {/if}
+        <Field label="Tags" hint="Comma separated, lowercase words joined by dashes. Up to 20.">
+          <input class="input" bind:value={tags} placeholder="wikipedia, pageviews, web" />
+        </Field>
+        <div class="grid gap-1">
+          <span class="text-meta">Schema</span>
+          {#each dir.files.filter((f) => f.format) as f (f.path)}
+            <p class="text-meta">
+              <span class="data">{f.path}</span>:
+              {#if f.schema}
+                <span class="data text-muted"
+                  >{f.schema.map((c) => `${c.name} ${c.type.toLowerCase()}`).join(" · ")}</span
+                >
+              {:else if MEASURABLE.includes(f.format!)}
+                <button
+                  type="button"
+                  class="underline"
+                  disabled={busy}
+                  onclick={() => measure(f.path, f.format!)}>measure</button
+                >
+              {:else}
+                <span class="text-muted">not measured</span>
+              {/if}
+            </p>
+          {:else}
+            <p class="text-meta text-muted">No data files to describe yet.</p>
+          {/each}
+        </div>
+        <div class="flex flex-wrap justify-between gap-2 border-t border-line pt-4">
+          {#if published}
+            <span></span>
+            <Button type="submit" variant="primary" disabled={busy}>Save and update record</Button>
+          {:else}
+            <Button href={stepHref("files")}>← Back</Button>
+            <span class="flex gap-2">
+              <Button type="submit" disabled={busy}>Save</Button>
+              <Button
+                variant="primary"
+                disabled={busy}
+                onclick={async () => {
+                  await saveDetails();
+                  if (!error) await goto(stepHref("review"));
+                }}>Save · next: review →</Button
+              >
+            </span>
+          {/if}
+        </div>
+      </form>
+    {:else}
+      <!-- 3 · Review and publish (or the record, once published) ----------- -->
+      <div class="grid max-w-reading gap-5">
+        {#if justPublished}
+          <Notice tone="success" title="Published. Lights on.">
+            {slug} is live at {location.host}/{slug}, and its record is in your repo. It shows on
+            the feed within seconds.
+            {#snippet actions()}
+              {#if onFeed}<Button size="sm" href={onFeed}>View on the feed</Button>{/if}
+              <Button size="sm" href="/{slug}">Open the public page</Button>
+              <CopyButton value={publicUrl} label="copy link" />
+            {/snippet}
+          </Notice>
+        {/if}
+        <MetaList
+          rows={[
+            {
+              label: "URL",
+              value: `${location.host}/${slug}`,
+              mono: true,
+              href: published ? `/${slug}` : null,
+            },
+            { label: "Title", value: dir.title || "(none — the name is used)" },
+            { label: "Description", value: dir.description || "(none)" },
+            {
+              label: "Files",
+              value: `${plural(dir.files.length, "file")} · ${formatBytes(total)} · ${dir.files.every((f) => f.sha256) ? "all hashed" : "hashing"}`,
+            },
+            {
+              label: "README",
+              value: dir.readmeSha256
+                ? `README.md · sha256 ${shortHash(dir.readmeSha256)}`
+                : "(none)",
+            },
+            { label: "License", value: dir.license || "(none)", mono: true },
+            { label: "Tags", value: dir.tags.join(", ") || "(none)" },
+            { label: "Record", value: recordUri, mono: true },
+            ...(dir.recordCid ? [{ label: "CID", value: dir.recordCid, mono: true }] : []),
+          ]}
+        />
 
-    <section class="panel">
-      <div class="row">
-        <h2>README</h2>
-        {#if dir.readmeSha256}<code class="muted" title={dir.readmeSha256}
-            >sha256 {shortHash(dir.readmeSha256)}</code
-          >{/if}
-      </div>
-      <textarea
-        bind:value={readme}
-        placeholder="# {title ||
-          slug}&#10;&#10;What's in this data, where it came from, how to use it."></textarea>
-      <div class="row">
-        <button class="primary" onclick={saveReadme} disabled={busy}>Save README</button>
-        <button onclick={draft} disabled={busy || dir.files.length === 0}>Draft with AI</button>
-        <span class="muted">Saved as {slug}/README.md. Empty it and save to remove it.</span>
-      </div>
-    </section>
-
-    {#if !published}
-      <div class="row">
-        <span class="spacer"></span>
-        <button class="danger" onclick={removeDir} disabled={busy}>Remove data dir</button>
+        {#if published}
+          <p class="text-meta text-muted">
+            Title, description, tags and README can change; each save updates the record. Files and
+            license are fixed while published.
+          </p>
+          <div class="border-t border-line pt-4">
+            <Button disabled={busy} onclick={() => (confirmUnpublish = true)}>Unpublish…</Button>
+          </div>
+        {:else}
+          <Section title="On publish">
+            <ul class="grid list-disc gap-1 pl-5 text-meta">
+              <li>
+                The record above is written to your AT Protocol repo
+                {#if data.config.owner}(<span class="data">@{data.config.owner}</span>){/if}. It
+                describes and points to the files; it never contains them.
+              </li>
+              <li>
+                {#if data.config.appview}{hostOf(data.config.appview)} is told, so it appears on the feed.{:else}No
+                  AppView is configured, so nothing is announced.{/if}
+              </li>
+              <li>
+                The data dir and its files become publicly readable at {location.host}/{slug}.
+              </li>
+            </ul>
+          </Section>
+          {#if dir.files.length === 0}
+            <Notice tone="error">Add at least one data file before publishing.</Notice>
+          {:else}
+            {#if !dir.license}
+              <Notice>No license yet: people won't know how they may use the data.</Notice>
+            {/if}
+            {#if !dir.readmeSha256}
+              <Notice>No README yet: say what's in the data and where it came from.</Notice>
+            {/if}
+          {/if}
+          <p class="text-meta text-muted">
+            You can unpublish later: the record is deleted, but copies people already made stay
+            theirs.
+          </p>
+          <div class="flex flex-wrap justify-between gap-2 border-t border-line pt-4">
+            <Button href={stepHref("details")}>← Back</Button>
+            <span class="flex gap-2">
+              <Button disabled={busy} onclick={() => (confirmRemove = true)}>Remove draft…</Button>
+              <Button variant="primary" disabled={busy || dir.files.length === 0} onclick={publish}
+                >{busy ? "Publishing…" : "Publish"}</Button
+              >
+            </span>
+          </div>
+        {/if}
       </div>
     {/if}
-  {/if}
-</div>
+  </div>
+
+  <Dialog
+    bind:open={confirmUnpublish}
+    title="Unpublish {slug}?"
+    description="The record is deleted from your AT Protocol repo and the data dir leaves the feed. Files stay in your bucket."
+  >
+    {#snippet footer()}
+      <Button onclick={() => (confirmUnpublish = false)}>Cancel</Button>
+      <Button variant="primary" disabled={busy} onclick={unpublish}>Unpublish</Button>
+    {/snippet}
+  </Dialog>
+  <Dialog
+    bind:open={confirmRemove}
+    title="Remove the draft {slug}?"
+    description="The draft goes away. Its files stay in the bucket, so you can make it a data dir again."
+  >
+    {#snippet footer()}
+      <Button onclick={() => (confirmRemove = false)}>Cancel</Button>
+      <Button variant="primary" disabled={busy} onclick={removeDir}>Remove draft</Button>
+    {/snippet}
+  </Dialog>
+{/if}

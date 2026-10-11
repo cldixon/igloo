@@ -23,7 +23,7 @@ Everything below uses the `cf` CLI (`bunx cf …` from a package directory). Run
 
 ```bash
 cd appview
-bunx cf deploy
+bun run deploy   # builds the pages (appview/web), then cf deploy
 ```
 
 The first deploy should create the `igloo-appview` D1 database and the `igloo-appview-index` queue (`cf deploy` provisions bindings by default), and attach `igloo.cldixon.dev`. If it complains about the queue, create it and deploy again:
@@ -105,7 +105,7 @@ The README panel on the data dir page runs the same check in the browser.
 
 ```bash
 cd instance && bun run dev --local   # instance on 127.0.0.1:8787, UI on :5173
-cd appview && bunx cf dev            # AppView on 127.0.0.1:8788
+cd appview && bun run dev           # AppView on 127.0.0.1:8788 (builds its pages first)
 ```
 
 Sign-in works locally through AT Protocol loopback clients, but only on `http://127.0.0.1:<port>`, not `localhost` and not the Vite port. To try the admin panel locally, run `bun run build` in `instance`, then open <http://127.0.0.1:8787/admin>.

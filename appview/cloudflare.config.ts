@@ -6,7 +6,7 @@ export default defineConfig({
   worker: {
     name: NAME,
     compatibilityDate: "2026-09-08",
-    entrypoint: "./src/index.ts",
+    entrypoint: "./src/worker.ts",
     observability: { enabled: true },
 
     // Phase 1 prototype hostname. Moves to igloo.social at the reset point.
@@ -37,6 +37,10 @@ export default defineConfig({
     env: {
       // Index of igloo records, plus viewer sign-in state. Migrates itself on first use.
       DB: bindings.d1({ name: NAME }),
+      // Pages are SvelteKit, built into .svelte-kit/cloudflare (directory set
+      // in wrangler.config.ts). Static files are served before the Worker
+      // runs; everything else reaches src/worker.ts.
+      ASSETS: bindings.assets(),
       INDEX_QUEUE: bindings.queue({ name: "igloo-appview-index" }),
       JETSTREAM: bindings.durableObject({ worker: NAME, exportName: "JetstreamDO" }),
       JETSTREAM_URL: bindings.text("https://jetstream2.us-east.bsky.network"),

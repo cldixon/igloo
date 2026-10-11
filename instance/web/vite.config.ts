@@ -1,4 +1,5 @@
 import { sveltekit } from "@sveltejs/kit/vite";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 import { searchForWorkspaceRoot } from "vite";
@@ -12,7 +13,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const WORKER_ORIGIN = process.env.IGLOO_WORKER_ORIGIN ?? "http://localhost:8787";
 
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [tailwindcss(), sveltekit()],
   server: {
     fs: {
       allow: [searchForWorkspaceRoot(process.cwd()), resolve(__dirname, "..")],
