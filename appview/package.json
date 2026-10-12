@@ -5,16 +5,17 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "cf dev",
-    "deploy": "cf deploy",
-    "deploy:dry": "cf deploy --dry-run",
+    "build": "cd web && bun --bun vite build",
+    "dev": "bun run build && cf dev",
+    "deploy": "bun run build && cf deploy",
+    "deploy:dry": "bun run build && cf deploy --dry-run",
     "types": "cf workers types",
-    "typecheck": "cf workers types && tsc --noEmit"
+    "typecheck": "cf workers types && tsc --noEmit && cd web && bun run check"
   },
   "dependencies": {
     "@igloo/lexicon": "workspace:*",
     "@igloo/platform": "workspace:*",
-    "@igloo/query": "workspace:*",
+    "@igloo/ui": "workspace:*",
     "hono": "^4.7.0"
   },
   "devDependencies": {

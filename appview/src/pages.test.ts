@@ -72,37 +72,71 @@ describe("notifyRecord", () => {
 });
 
 describe("pages", () => {
-  test("the feed lists data dirs with maintainer and instance, escaping record text", async () => {
-    const res = await get("/");
-    const page = await res.text();
-    expect(res.status).toBe(200);
-    expect(page).toContain("@alice.test");
-    expect(page).toContain("Alice&#39;s igloo");
-    expect(page).toContain(`href="/d/${ALICE}/wiki"`);
-    expect(page).not.toContain("<script>alert(1)</script>");
-    expect(page).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+  const pages = () => import("./pages.js");
+
+  test("the feed lists data dirs with maintainer and instance", async () => {
+    const { homePage } = await pages();
+    const home = await homePage(await getDb(env.DB as D1Database));
+    expect(home.entries).toHaveLength(1);
+    const [entry] = home.entries;
+    expect(entry!.href).toBe(`/d/${ALICE}/wiki`);
+    expect(entry!.actor).toMatchObject({ handle: "alice.test", href: `/m/${ALICE}` });
+    expect(entry!.instance).toMatchObject({
+      name: "Alice's igloo",
+      href: `/i/${ALICE}/data.alice.test`,
+    });
+    // Record text is passed through as text; Svelte escapes it when rendering.
+    expect(entry!.title).toBe("<script>alert(1)</script> Wikipedia");
+    expect(home.instances.map((i) => i.dataDirs)).toEqual([1]);
+    expect(home.next).toBeNull();
   });
 
-  test("a data dir page links files straight to the instance and shows hashes", async () => {
-    const page = await (await get(`/d/${ALICE}/wiki`)).text();
-    expect(page).toContain("https://data.alice.test/api/download?path=wiki%2Fdata.csv");
-    expect(page).toContain("a".repeat(64));
-    expect(page).toContain(dataDirUri(ALICE, "wiki"));
-    expect(page).toContain('data-sha256="' + "b".repeat(64) + '"');
+  test("a data dir links files straight to the instance, with hashes and the record", async () => {
+    const { dataDirPage } = await pages();
+    const page = (await dataDirPage(await getDb(env.DB as D1Database), ALICE, "wiki"))!;
+    const d = page.dataDir;
+    expect(d.files[0]!.url).toBe("https://data.alice.test/api/download?path=wiki%2Fdata.csv");
+    expect(d.files[0]!.sha256).toBe("a".repeat(64));
+    expect(d.recordUri).toBe(dataDirUri(ALICE, "wiki"));
+    expect(d.readme).toEqual({
+      url: "https://data.alice.test/api/download?path=wiki%2FREADME.md",
+      sha256: "b".repeat(64),
+    });
+    expect(d.instance.name).toBe("Alice's igloo");
   });
 
-  test("instance and maintainer pages", async () => {
-    expect(await (await get(`/i/${ALICE}/data.alice.test`)).text()).toContain("wiki/");
-    const maintainer = await (await get(`/m/${ALICE}`)).text();
-    expect(maintainer).toContain("Alice");
-    expect(maintainer).toContain("Alice&#39;s igloo");
+  test("instance, instances and maintainer pages", async () => {
+    const { instancePage, instancesPage, maintainerPage } = await pages();
+    const db = await getDb(env.DB as D1Database);
+    const instance = (await instancePage(db, ALICE, "data.alice.test"))!;
+    expect(instance.dataDirs.map((d) => d.name)).toEqual(["wiki"]);
+    expect(instance.operator.handle).toBe("alice.test");
+    const directory = await instancesPage(db);
+    expect(directory).toMatchObject([{ name: "Alice's igloo", dataDirs: 1, bytes: 2048 }]);
+    const maintainer = (await maintainerPage(db, ALICE))!;
+    expect(maintainer.person.displayName).toBe("Alice");
+    expect(maintainer.instances.map((i) => i.name)).toEqual(["Alice's igloo"]);
   });
 
-  test("unknown things are 404s", async () => {
-    expect((await get(`/d/${ALICE}/nope`)).status).toBe(404);
-    expect((await get(`/i/${ALICE}/nope.test`)).status).toBe(404);
-    expect((await get("/m/did:plc:bobbbbbbbbbbbbbbbbbbbbbb")).status).toBe(404);
+  test("unknown things are not found", async () => {
+    const { dataDirPage, instancePage, maintainerPage } = await pages();
+    const db = await getDb(env.DB as D1Database);
+    expect(await dataDirPage(db, ALICE, "nope")).toBeNull();
+    expect(await instancePage(db, ALICE, "nope.test")).toBeNull();
+    expect(await maintainerPage(db, "did:plc:bobbbbbbbbbbbbbbbbbbbbbb")).toBeNull();
   });
+
+  test("discover lists tags, a random data dir and instances by size", async () => {
+    const { discoverPage } = await pages();
+    const discover = await discoverPage(await getDb(env.DB as D1Database));
+    expect(discover.random?.name).toBe("wiki");
+    expect(discover.bySize).toMatchObject([{ name: "Alice's igloo", bytes: 2048 }]);
+  });
+});
+
+test("pages are left to SvelteKit; the API answers its own paths", async () => {
+  expect((await get("/")).status).toBe(404);
+  expect((await get("/login", { method: "GET" })).status).toBe(404);
 });
 
 test("health", async () => {

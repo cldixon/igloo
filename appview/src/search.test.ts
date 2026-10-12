@@ -153,20 +153,17 @@ describe("searchDataDirs", () => {
 
 describe("routes", () => {
   const env = () => ({ DB: db });
-  test("the search page escapes the query and lists matches", async () => {
-    const page = await (
-      await app.request(
-        `https://igloo.test/search?q=${encodeURIComponent('col:lat "><script>x</script>')}`,
-        {},
-        env(),
-      )
-    ).text();
-    expect(page).not.toContain("<script>x</script>");
-    expect(page).toContain("No data dirs match.");
-    const hit = await (
-      await app.request("https://igloo.test/search?q=col%3Alat", {}, env())
-    ).text();
-    expect(hit).toContain("USGS stream gauges");
+  test("the search page lists matches, with facets to narrow them", async () => {
+    const { searchPage } = await import("./pages.js");
+    const none = { formats: [], licenses: [], size: "" as const };
+    expect((await searchPage(db, 'col:lat "><script>x</script>', none)).results).toEqual([]);
+    const hit = await searchPage(db, "col:lat", none);
+    expect(hit.results.map((r) => r.title)).toEqual(["USGS stream gauges"]);
+    const all = await searchPage(db, "type:BIGINT type:DATE", none);
+    expect(all.results.map((r) => r.name)).toEqual(["pageviews"]);
+    const big = await searchPage(db, "parquet", { ...none, size: "l" });
+    expect(big.total).toBe(2);
+    expect(big.results).toEqual([]);
   });
 
   test("the JSON API returns records", async () => {

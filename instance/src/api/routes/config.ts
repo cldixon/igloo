@@ -1,8 +1,10 @@
 import { Hono } from "hono";
+import { NSID } from "@igloo/lexicon";
+import { getSetting } from "@igloo/platform";
 import type { Bindings } from "../bindings.js";
 import type { IglooConfig, VisualTheme } from "../../shared/types.js";
 import { getDb } from "../../db/migrations.js";
-import { getOwnerHandle } from "../../auth/owner.js";
+import { getOwner, getOwnerHandle } from "../../auth/owner.js";
 
 export const configRoute = new Hono<{ Bindings: Bindings }>();
 
@@ -25,7 +27,25 @@ export function loadConfig(env: Bindings): IglooConfig {
   };
 }
 
+/** What every page needs to frame itself: names, owner, and where the AppView is. */
 configRoute.get("/config", async (c) => {
-  const owner = await getOwnerHandle(await getDb(c.env.DB)).catch(() => null);
-  return c.json({ ...loadConfig(c.env), owner });
+  const db = await getDb(c.env.DB);
+  const [owner, ownerDid, name, description, recordUri] = await Promise.all([
+    getOwnerHandle(db).catch(() => null),
+    getOwner(db).catch(() => null),
+    getSetting(db, "instance_name").catch(() => null),
+    getSetting(db, "instance_description").catch(() => null),
+    getSetting(db, "instance_record_uri").catch(() => null),
+  ]);
+  const config: IglooConfig = {
+    ...loadConfig(c.env),
+    owner,
+    ownerDid,
+    name: name || null,
+    description: description || null,
+    instanceRecordUri: recordUri,
+    appview: c.env.IGLOO_APPVIEW_URL || null,
+    dataDirCollection: NSID.dataDir,
+  };
+  return c.json(config);
 });

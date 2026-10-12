@@ -26,15 +26,16 @@ mock.module("./storage.js", () => ({
   getObjectMetadata: mockGetObjectMetadata,
 }));
 
-import { Hono } from "hono";
-
+// Bun's module mocks outlive this file, so keep the real route: other test
+// files read /api/config through it.
+const realConfig = await import("./routes/config.js");
 mock.module("./routes/config.js", () => ({
+  ...realConfig,
   loadConfig: () => ({
     title: "test-igloo",
     tagline: "test tagline",
     theme: "repo",
   }),
-  configRoute: new Hono(),
 }));
 
 const { app } = await import("./app.js");

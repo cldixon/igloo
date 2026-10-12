@@ -1,0 +1,25 @@
+{
+  // svelte-kit sync generates .svelte-kit/tsconfig.json: route types, $lib,
+  // and $server for the Worker modules in ../src that pages read from.
+  "extends": "./.svelte-kit/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "types": ["@types/bun"],
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    ".svelte-kit/ambient.d.ts",
+    ".svelte-kit/non-ambient.d.ts",
+    ".svelte-kit/types/**/$types.d.ts",
+    "src/**/*.ts",
+    "src/**/*.svelte",
+    "vite.config.ts",
+    // Env and the Workers runtime types, from `cf workers types` in ../
+    "../.cloudflare/types/index.d.ts"
+  ]
+}

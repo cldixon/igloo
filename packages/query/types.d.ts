@@ -1,7 +1,7 @@
 /**
- * The public API of @igloo/query, declared without DOM types so Workers (which
- * have none) can import it: the AppView only stringifies the browser
- * functions into its pages. The implementation is src/index.ts.
+ * The public API of @igloo/query, declared without DOM types so Worker code
+ * (which has none) can import it: @igloo/ui's query panel is server-rendered
+ * inside the AppView Worker. The implementation is src/index.ts.
  */
 export declare const DUCKDB_VERSION: string;
 export type DuckDBSource = { module: string; dist: string };

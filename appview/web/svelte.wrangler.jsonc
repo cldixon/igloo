@@ -1,0 +1,9 @@
+// Read only by @sveltejs/adapter-cloudflare (svelte.config.js), so it builds
+// for Workers static assets rather than Pages. The deployed config is
+// cloudflare.config.ts.
+{
+  "name": "igloo-appview",
+  "main": ".svelte-kit/cloudflare/_worker.js",
+  "compatibility_date": "2026-09-08",
+  "assets": { "directory": ".svelte-kit/cloudflare", "binding": "ASSETS" },
+}

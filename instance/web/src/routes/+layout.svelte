@@ -1,127 +1,84 @@
 <script lang="ts">
   import "../app.css";
-  import SettingsMenu from "$lib/components/SettingsMenu.svelte";
-  import { colorMode, config, siteName, applyConfig } from "$lib/theme";
-  import { fetchConfig } from "$lib/api";
-  import { onMount } from "svelte";
+  import { page } from "$app/state";
+  import { goto, invalidate } from "$app/navigation";
+  import { AccountMenu, NavLink, ServerSignature, Shell, hostOf, type MenuItem } from "@igloo/ui";
+  import { auth } from "$lib/admin";
+  import { appviewUrl, instanceName } from "$lib/api";
 
-  let { children } = $props();
+  let { data, children } = $props();
 
-  onMount(async () => {
-    const cfg = await fetchConfig();
-    applyConfig(cfg);
-  });
+  let host = $derived(location.host);
+  let inAdmin = $derived(page.url.pathname.startsWith("/admin"));
+  let signedIn = $derived(data.status?.signedIn ?? false);
+  let name = $derived(instanceName(data.config));
+  let handle = $derived(
+    data.config.owner ? `@${data.config.owner}` : (data.config.ownerDid ?? "owner"),
+  );
+  let instancePage = $derived(
+    data.config.ownerDid ? appviewUrl(data.config, `/i/${data.config.ownerDid}/${host}`) : null,
+  );
 
-  $effect(() => {
-    document.documentElement.setAttribute("data-theme", $colorMode);
-  });
+  async function signOut() {
+    await auth.logout().catch(() => {});
+    await invalidate("igloo:session");
+    await goto("/");
+  }
+
+  let menu = $derived<MenuItem[]>([
+    ...(inAdmin ? [{ label: "Public index", href: "/" }] : [{ label: "Admin", href: "/admin" }]),
+    { label: "Settings", href: "/admin/settings" },
+    ...(instancePage
+      ? [{ label: `On ${hostOf(data.config.appview!)} ↗`, href: instancePage }]
+      : []),
+    { label: "Sign out", onSelect: signOut },
+  ]);
+
+  const section = (path: string) =>
+    path === "/admin"
+      ? page.url.pathname === "/admin" ||
+        page.url.pathname.startsWith("/admin/d/") ||
+        page.url.pathname === "/admin/new"
+      : page.url.pathname.startsWith(path);
 </script>
 
 <svelte:head>
-  <title>{$siteName}</title>
-  <meta name="description" content={$config.tagline} />
+  <title>{name}</title>
+  {#if data.config.description}<meta name="description" content={data.config.description} />{/if}
 </svelte:head>
 
-<div class="app">
-  <header>
-    <div class="header-content">
-      <a href="/" class="logo">
-        {#if $config.title === "igloo"}<span class="logo-icon">&#10052;</span>{/if}
-        <span class="logo-text">{$config.title}</span>
-      </a>
-      <div class="header-actions">
-        <a href="/admin" class="admin-link">admin</a>
-        <SettingsMenu />
-      </div>
-    </div>
-  </header>
-
-  <main>
-    {@render children()}
-  </main>
-
-  <footer>
-    <span class="footer-text">{$config.title} &mdash; {$config.tagline}</span>
-  </footer>
-</div>
-
-<style>
-  .app {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
-
-  header {
-    background-color: var(--nav-bg);
-    border-bottom: 1px solid var(--nav-border);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
-
-  .header-content {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 0.75rem 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .logo {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    text-decoration: none;
-    color: var(--nav-text);
-  }
-
-  .header-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .admin-link {
-    font-family: var(--nav-font);
-    font-size: 0.8125rem;
-    color: var(--nav-text-secondary);
-  }
-
-  .admin-link:hover {
-    color: var(--nav-text);
-  }
-
-  .logo-icon {
-    font-size: 1.25rem;
-  }
-
-  .logo-text {
-    font-family: var(--nav-font);
-    font-size: 1.125rem;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-  }
-
-  main {
-    flex: 1;
-    max-width: 960px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 1.5rem;
-  }
-
-  footer {
-    border-top: 1px solid var(--nav-border);
-    background-color: var(--nav-bg);
-    padding: 1rem 1.5rem;
-    text-align: center;
-  }
-
-  .footer-text {
-    font-family: var(--nav-font);
-    font-size: 0.75rem;
-    color: var(--nav-text-secondary);
-  }
-</style>
+<Shell>
+  {#snippet brand()}
+    {#if inAdmin}
+      <a href="/admin" class="no-underline">{host}</a><span class="font-normal text-muted"
+        >{" · admin"}</span
+      >
+    {:else}
+      <a href="/" class="no-underline">{name}</a>
+    {/if}
+  {/snippet}
+  {#snippet nav()}
+    {#if inAdmin && signedIn}
+      <NavLink href="/admin" current={section("/admin")}>data dirs</NavLink>
+      <NavLink href="/admin/settings" current={section("/admin/settings")}>settings</NavLink>
+    {/if}
+  {/snippet}
+  {#snippet account()}
+    {#if signedIn}
+      <AccountMenu label={handle} items={menu} />
+    {:else if !inAdmin}
+      <a href="/admin" class="text-meta text-muted">sign in</a>
+    {:else}
+      <a href="/" class="text-meta text-muted">public index</a>
+    {/if}
+  {/snippet}
+  {#snippet footer()}
+    <ServerSignature {host}>
+      {#if !inAdmin}
+        <a href="/api/datadirs">index.json</a>
+        {#if instancePage}<a href={instancePage}>{hostOf(data.config.appview!)}/i/{host}</a>{/if}
+      {/if}
+    </ServerSignature>
+  {/snippet}
+  {@render children()}
+</Shell>

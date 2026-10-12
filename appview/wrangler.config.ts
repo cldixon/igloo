@@ -3,6 +3,8 @@ import { defineWranglerConfig } from "wrangler/experimental-config";
 // cf builds this Worker with the Wrangler bundler. Settings that cf's own
 // config does not cover yet live here.
 export default defineWranglerConfig({
+  // The SvelteKit build (web/, vite build) writes pages' client files here.
+  assetsDirectory: "./web/.svelte-kit/cloudflare",
   dev: {
     // Keep requests on their loopback origin in dev (otherwise they're
     // rewritten to http://<custom domain>), so viewer sign-in can use an

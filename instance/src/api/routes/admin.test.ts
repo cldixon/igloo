@@ -376,6 +376,23 @@ describe("instance profile", () => {
   test("needs a name", async () => {
     expect((await call("PUT", "/instance", { name: " " })).status).toBe(400);
   });
+
+  test("the public config carries the profile, owner and AppView, for every page's frame", async () => {
+    await call("PUT", "/instance", { name: "cldixon's igloo", description: "Datasets" });
+    const db = await getDb(env.DB as D1Database);
+    await setSetting(db, "owner_handle", "cldixon.dev");
+    await setSetting(db, "owner_handle_checked_at", new Date().toISOString());
+    const res = await app.request(`${ORIGIN}/api/config`, {}, env);
+    expect(await res.json()).toMatchObject({
+      name: "cldixon's igloo",
+      description: "Datasets",
+      owner: "cldixon.dev",
+      ownerDid: OWNER,
+      appview: "https://appview.example.com",
+      dataDirCollection: NSID.dataDir,
+      instanceRecordUri: `at://${OWNER}/${NSID.instance}/data.example.com`,
+    });
+  });
 });
 
 test("network status", async () => {

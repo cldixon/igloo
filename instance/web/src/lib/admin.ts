@@ -11,13 +11,18 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  fetcher: typeof fetch = fetch,
+): Promise<T> {
   const init: RequestInit = { method, credentials: "same-origin" };
   if (body !== undefined) {
     init.headers = { "content-type": "application/json" };
     init.body = JSON.stringify(body);
   }
-  const res = await fetch(path, init);
+  const res = await fetcher(path, init);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, data.error ?? `Request failed (${res.status})`);
   return data as T;
@@ -26,7 +31,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export type AuthStatus = { claimed: boolean; owner: string | null; signedIn: boolean };
 
 export const auth = {
-  status: () => request<AuthStatus>("GET", "/api/auth/status"),
+  status: (fetcher?: typeof fetch) =>
+    request<AuthStatus>("GET", "/api/auth/status", undefined, fetcher),
   login: (handle: string, setupCode?: string) =>
     request<{ url: string }>("POST", "/api/auth/login", { handle, setupCode }),
   logout: () => request("POST", "/api/auth/logout"),

@@ -1,21 +1,26 @@
 <script lang="ts">
-  import RepoListing from "$lib/components/repo/RepoListing.svelte";
-  import IndexListing from "$lib/components/index/IndexListing.svelte";
-  import { visualTheme, siteName } from "$lib/theme";
+  import { page } from "$app/state";
+  import { DataDirView, hostOf } from "@igloo/ui";
+  import { instanceName, toModel } from "$lib/api";
 
   let { data } = $props();
+
+  let model = $derived(toModel(data.dataDir, data.config));
+  let tab = $derived(page.url.searchParams.get("tab") ?? "files");
+  const tabHref = (t: string) => (t === "files" ? `/${data.name}` : `/${data.name}?tab=${t}`);
 </script>
 
 <svelte:head>
-  <title
-    >{data.currentPath
-      ? data.currentPath.replace(/\/$/, "").split("/").pop() + " · " + $siteName
-      : $siteName}</title
-  >
+  <title>{data.dataDir.title ?? data.name} · {instanceName(data.config)}</title>
+  {#if data.dataDir.description}<meta name="description" content={data.dataDir.description} />{/if}
 </svelte:head>
 
-{#if $visualTheme === "index"}
-  <IndexListing listing={data.listing} currentPath={data.currentPath} />
-{:else}
-  <RepoListing listing={data.listing} currentPath={data.currentPath} />
-{/if}
+<DataDirView
+  dataDir={model}
+  {tab}
+  {tabHref}
+  breadcrumb={[{ label: location.host, href: "/" }, { label: `${data.name}/` }]}
+  elsewhere={data.dataDir.feedUrl && data.config.appview
+    ? { label: `view on ${hostOf(data.config.appview)}`, href: data.dataDir.feedUrl }
+    : null}
+/>

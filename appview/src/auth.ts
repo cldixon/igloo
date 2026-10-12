@@ -11,7 +11,6 @@ import {
   resolveDid,
 } from "@igloo/platform";
 import { getDb, getMaintainer } from "./db.js";
-import { loginPage, type Viewer } from "./views.js";
 import type { AppEnv } from "./index.js";
 
 /**
@@ -32,17 +31,30 @@ function oauth(c: Ctx, db: D1Database) {
   });
 }
 
-/** The signed-in viewer, if any. */
-export async function viewerOf(c: Ctx, db: D1Database): Promise<Viewer> {
-  const did = await getWebSession(db, getCookie(c, WEB_SESSION_COOKIE));
+/** The person browsing, when signed in. */
+export type Viewer = { did: string; handle: string | null; avatar: string | null } | null;
+
+/** The signed-in viewer for a session cookie's value, if any. */
+export async function viewerFor(db: D1Database, sessionToken: string | undefined): Promise<Viewer> {
+  const did = await getWebSession(db, sessionToken);
   if (!did) return null;
-  const handle = (await getMaintainer(db, did))?.handle ?? null;
-  const known = await db
-    .prepare("SELECT value FROM settings WHERE key = ?")
-    .bind(`viewer_handle:${did}`)
-    .first<{ value: string }>();
-  return { did, handle: handle ?? known?.value ?? null };
+  const maintainer = await getMaintainer(db, did);
+  const known = maintainer?.handle
+    ? null
+    : await db
+        .prepare("SELECT value FROM settings WHERE key = ?")
+        .bind(`viewer_handle:${did}`)
+        .first<{ value: string }>();
+  return {
+    did,
+    handle: maintainer?.handle ?? known?.value ?? null,
+    avatar: maintainer?.avatar ?? null,
+  };
 }
+
+/** Sign-in failures go back to the sign-in page, which says what happened. */
+const loginError = (c: Ctx, error: string, handle = "") =>
+  c.redirect(`/login?${new URLSearchParams({ error, ...(handle && { handle }) })}`, 303);
 
 export const authRoutes = new Hono<AppEnv>();
 
@@ -52,11 +64,6 @@ authRoutes.get("/oauth/client-metadata.json", async (c) => {
 
 authRoutes.get("/oauth/jwks.json", async (c) => {
   return c.json((await oauth(c, await getDb(c.env.DB))).jwks);
-});
-
-authRoutes.get("/login", async (c) => {
-  const db = await getDb(c.env.DB);
-  return c.html(loginPage(await viewerOf(c, db)));
 });
 
 authRoutes.post("/login", async (c) => {
@@ -71,7 +78,7 @@ authRoutes.post("/login", async (c) => {
     return c.redirect(url.toString());
   } catch (error) {
     console.warn("authorize failed", error);
-    return c.html(loginPage(null, `Couldn't start sign-in for ${handle || "that handle"}.`), 400);
+    return loginError(c, "authorize", handle);
   }
 });
 
@@ -100,7 +107,7 @@ authRoutes.get("/oauth/callback", async (c) => {
     return c.redirect("/");
   } catch (error) {
     console.warn("callback failed", error);
-    return c.html(loginPage(null, "Sign-in didn't complete. Try again."), 400);
+    return loginError(c, "callback");
   }
 });
 
@@ -108,5 +115,5 @@ authRoutes.post("/logout", async (c) => {
   if (c.req.header("origin") !== originOf(c)) return c.text("Cross-origin request refused", 403);
   await deleteWebSession(await getDb(c.env.DB), getCookie(c, WEB_SESSION_COOKIE));
   deleteCookie(c, WEB_SESSION_COOKIE, { path: "/" });
-  return c.redirect("/");
+  return c.redirect("/", 303);
 });
